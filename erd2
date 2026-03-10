@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MediCare+ ER Diagram</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #f0f2f5;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    font-size: 12px;
+    overflow: auto;
+  }
+  h1 {
+    text-align: center;
+    padding: 14px;
+    background: #2c3e6b;
+    color: #fff;
+    font-size: 16px;
+    letter-spacing: 1px;
+  }
+  .canvas {
+    position: relative;
+    width: 2100px;
+    height: 1500px;
+    margin: 0 auto;
+  }
+  svg#lines {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    overflow: visible;
+  }
+
+  /* ── Table card ── */
+  .tbl {
+    position: absolute;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.25);
+    min-width: 210px;
+  }
+  .tbl-head {
+    padding: 7px 12px;
+    font-weight: 700;
+    font-size: 13px;
+    color: #fff;
+    text-align: center;
+  }
+  .tbl-body {
+    background: #fff;
+    border: 1.5px solid #aab;
+    border-top: none;
+  }
+  .tbl-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 10px;
+    border-bottom: 1px solid #e8eaf0;
+    font-size: 11.5px;
+    gap: 16px;
+  }
+  .tbl-row:last-child { border-bottom: none; }
+  .col-name { color: #1a1a2e; font-weight: 500; }
+  .col-type { color: #555; font-size: 10.5px; white-space: nowrap; }
+
+  /* Header colours matching sample */
+  .h-teal    { background: #008b8b; }
+  .h-purple  { background: #6a5acd; }
+  .h-blue    { background: #4169e1; }
+  .h-indigo  { background: #3b4bb5; }
+
+  /* Legend */
+  .legend {
+    display: flex; gap: 24px; flex-wrap: wrap;
+    padding: 8px 20px;
+    background: #2c3e6b;
+    color: #cdd;
+    font-size: 11px;
+    justify-content: center;
+  }
+  .legend span { display: flex; align-items: center; gap: 6px; }
+  .leg-line {
+    display: inline-block; width: 28px; height: 2px;
+  }
+</style>
+</head>
+<body>
+<h1>MediCare+ Hospital &amp; Clinic Management System — ER Diagram</h1>
+<div class="legend">
+  <span><span class="leg-line" style="background:#555;"></span> 1 : N relationship</span>
+  <span><span class="leg-line" style="background:#555;border-top:2px dashed #555;height:0"></span> M : N (via junction)</span>
+  <span><span class="leg-line" style="background:#555;"></span> 1 : 1 relationship</span>
+  <span>PK = Primary Key &nbsp;|&nbsp; FK = Foreign Key</span>
+</div>
+
+<div class="canvas" id="canvas">
+<svg id="lines"></svg>
+
+<!-- ══════════════════ Department ══════════════════ -->
+<div class="tbl" id="tDepartment" style="left:60px;top:60px;min-width:200px">
+  <div class="tbl-head h-blue">Department</div>
+  <div class="tbl-body">
+    <div class="tbl-row"><span class="col-name">dept_id</span><span class="col-type">PK, INT</span></div>
+    <div class="tbl-row"><span class="col-name">dept_name</span><span class="col-type">UNIQUE, NVARCHAR</span></div>
+    <div class="tbl-row"><span class="col-name">head_doctor</span><span class="col-type">FK, INT</span></div>
+  </div>
+</div>
+
+<!-- ══════════════════ Doctors ══════════════════ -->
+<div class="tbl" id="tDoctors" style="left:380px;top:40px;min-width:220px">
+  <div class="tbl-head h-blue">Doctors</div>
+  <div class="tbl-body">
+    <div class="tbl-row"><span class="col-name">doctor_id</span><span class="col-type">PK, INT</span></div>
+    <div class="tbl-row"><span class="col-name">doctor_name</span><span class="col-type">NVARCHAR</span></div>
+    <div class="tbl-row"><span class="col-name">email</span><span class="col-type">UNIQUE, NVARCHAR</span></div>
+    <div class="tbl-row"><span class="col-name">date_of_birth</span><span class="col-type">DATE</span></div>
+    <div class="tbl-row"><span class="col-name">address</span><span class="col-type">NVARCHAR</span></div>
+    <div class="tbl-row"><span class="col-name">phone_number</span><span class="col-type">NVARCHAR</span></div>
+    <div class="tbl-row"><span class="col-name">specialization</span><span class="col-type">NVARCHAR</span></div>
+    <div class="tbl-row"><span class="col-name">fees</span><span class="col-type">DECIMAL</span></div>
+    <div class="tbl-row"><span class="col-name">dept_id</span><span class="col-type">FK, INT</span></div>
+    <div class="tbl-row"><span class="col-name">is_active</span><span class="col-type">BIT</span></div>
+  </div>
+</div>
+
+<!-- ══════════════════ Time_Table ══════════════════ -->
+<div class="tbl" id="tTimeTable" style="left:720px;top:40px;min-width:200px">
+  <div class="tbl-head h-blue">Time_Table</div>
+  <div class="tbl-body">
+    <div class="tbl-row"><span class="col-name">timetable_id</span><span class="col-type">PK, INT</span></div>
+    <div class="tbl-row"><span class="col-name">doctor_id</span><span class="col-type">FK, INT</span></div>
+    <div class="tbl-row"><span class="col-name">day_of_week</span><span class="col-type">NVARCHAR</span></div>
+    <div class="tbl-row"><span class="col-name">start_time</span><span class="col-type">TIME</span></div>
+    <div class="tbl-row"><span class="col-name">end_time</span><span class="col-type">TIME</span></div>
+  </div>
+</div>
+
+<!-- ══════════════════ Patients ══════════════════ -->
+<div class="tbl" id="tPatients" style="left:380px;top:430px;min-width:220px">
+  <div class="tbl-head h-purple">Patients</div>
+  <div class="tbl-body">
+    <div class="tbl-row"><span class="col-name">patient_id</span><span class="col-type">PK, INT</span></div>
+    <div class="tbl-row"><span class="col-name">patient_name</span><span class="col-type">NVARCHAR</span></div>
+    <div class="tbl-row"><span class="col-name">email</span><span class="col-type">UNIQUE, NVARCHAR</span></div>
+    <div class="tbl-row"><span class="col-name">phone</span><span class="col-type">NVARCHAR</span></div>
+    <div class="tbl-row"><span class="col-name">date_of_birth</span><span class="col-type">DATE</span></div>
+    <div class="tbl-row"><span class="col-name">gender</span><span class="col-type">NVARCHAR</span></div>
+    <div class="tbl-row"><span class="col-name">address</span><span class="col-type">NVARCHAR</span></div>
+    <div class="tbl-row"><span class="col-name">registered_on</span><span class="col-type">DATE</span></div>
+  </div>
+</div>
+
+<!-- ══════════════════ Insurance ══════════════════ -->
+<div class="tbl" id="tInsurance" style="left:60px;top:430px;min-width:210px">
+  <div class="tbl-head h-purple">Insurance</div>
+  <div class="tbl-body">
+    <div class="tbl-row"><span class="col-name">insurance_id</span><span class="col-type">PK, INT</span></div>
+    <div class="tbl-row"><span class="col-name">provider_name</span><span class="col-type">NVARCHAR</span></div>
+    <div class="tbl-row"><span class="col-name">coverage_percent</span><span class="col-type">DECIMAL</span></div>
+    <div class="tbl-row"><span class="col-name">yearly_maximum</span><span class="col-type">DECIMAL</span></div>
+    <div class="tbl-row"><span class="col-name">coverage_details</span><span class="col-type">NVARCHAR</span></div>
+  </div>
+</div>
+
+<!-- ══════════════════ Patients_Insurance ══════════════════ -->
+<div class="tbl" id="tPatIns" style="left:60px;top:650px;min-width:210px">
+  <div class="tbl-head h-purple">Patients_Insurance</div>
+  <div class="tbl-body">
+    <div class="tbl-row"><span class="col-name">insurance_id</span><span class="col-type">PK, FK, INT</span></div>
+    <div class="tbl-row"><span class="col-name">patient_id</span><span class="col-type">PK, FK, INT</span></div>
+    <div class="tbl-row"><span class="col-name">policy_number</span><span class="col-type">UNIQUE, NVARCHAR</span></div>
+    <div class="tbl-row"><span class="col-name">valid_from</span><span class="col-type">DATE</span></div>
+    <div class="tbl-row"><span class="col-name">valid_to</span><span class="col-type">DATE</span></div>
+  </div>
+</div>
+
+<!-- ══════════════════ Appointments ══════════════════ -->
+<div class="tbl" id="tAppointments" style="left:720px;top:380px;min-width:220px">
+  <div class="tbl-head h-teal">Appointments</div>
+  <div class="tbl-body">
+    <div class="tbl-row"><span class="col-name">appointment_id</span><span class="col-type">PK, INT</span></div>
+    <div class="tbl-row"><span class="col-name">doctor_id</span><span class="col-type">FK, INT</span></div>
+    <div class="tbl-row"><span class="col-name">patient_id</span><span class="col-type">FK, INT</span></div>
+    <div class="tbl-row"><span class="col-name">appt_date</span><span class="col-type">DATE</span></div>
+    <div class="tbl-row"><span class="col-name">time_slot</span><span class="col-type">NVARCHAR</span></div>
+    <div class="tbl-row"><span class="col-name">status</span><span class="col-type">NVARCHAR</span></div>
+    <div class="tbl-row"><span class="col-name">notes</span><span class="col-type">NVARCHAR</span></div>
+  </div>
+</div>
+
+<!-- ══════════════════ Diagnosis ══════════════════ -->
+<div class="tbl" id="tDiagnosis" style="left:1060px;top:340px;min-width:220px">
+  <div class="tbl-head h-teal">Diagnosis</div>
+  <div class="tbl-body">
+    <div class="tbl-row"><span class="col-name">diagnosis_id</span><span class="col-type">PK, INT</span></div>
+    <div class="tbl-row"><span class="col-name">appointment_id</span><span class="col-type">FK, UNIQUE, INT</span></div>
+    <div class="tbl-row"><span class="col-name">doctor_id</span><span class="col-type">FK, INT</span></div>
+    <div class="tbl-row"><span class="col-name">patient_id</span><span class="col-type">FK, INT</span></div>
+    <div class="tbl-row"><span class="col-name">diagnosis_details</span><span class="col-type">NVARCHAR</span></div>
+    <div class="tbl-row"><span class="col-name">treatment_plan</span><span class="col-type">NVARCHAR</span></div>
+    <div class="tbl-row"><span class="col-name">requires_followup</span><span class="col-type">BIT</span></div>
+    <div class="tbl-row"><span class="col-name">diagnosis_date</span><span class="col-type">DATE</span></div>
+  </div>
+</div>
+
+<!-- ══════════════════ Prescriptions ══════════════════ -->
+<div class="tbl" id="tPrescriptions" style="left:720px;top:750px;min-width:210px">
+  <div class="tbl-head h-indigo">Prescriptions</div>
+  <div class="tbl-body">
+    <div class="tbl-row"><span class="col-name">prescription_id</span><span class="col-type">PK, INT</span></div>
+    <div class="tbl-row"><span class="col-name">appointment_id</span><span class="col-type">FK, UNIQUE, INT</span></div>
+    <div class="tbl-row"><span class="col-name">patient_id</span><span class="col-type">FK, INT</span></div>
+    <div class="tbl-row"><span class="col-name">doctor_id</span><span class="col-type">FK, INT</span></div>
+    <div class="tbl-row"><span class="col-name">pres_date</span><span class="col-type">DATE</span></div>
+  </div>
+</div>
+
+<!-- ══════════════════ Prescription_Medicines ══════════════════ -->
+<div class="tbl" id="tPresMed" style="left:1060px;top:780px;min-width:220px">
+  <div class="tbl-head h-indigo">Prescription_Medicines</div>
+  <div class="tbl-body">
+    <div class="tbl-row"><span class="col-name">prescription_id</span><span class="col-type">PK, FK, INT</span></div>
+    <div class="tbl-row"><span class="col-name">medicine_id</span><span class="col-type">PK, FK, INT</span></div>
+    <div class="tbl-row"><span class="col-name">dosage</span><span class="col-type">NVARCHAR</span></div>
+    <div class="tbl-row"><span class="col-name">duration_days</span><span class="col-type">INT</span></div>
+    <div class="tbl-row"><span class="col-name">quantity</span><span class="col-type">INT</span></div>
+  </div>
+</div>
+
+<!-- ══════════════════ Medicines ══════════════════ -->
+<div class="tbl" id="tMedicines" style="left:1400px;top:780px;min-width:200px">
+  <div class="tbl-head h-indigo">Medicines</div>
+  <div class="tbl-body">
+    <div class="tbl-row"><span class="col-name">medicine_id</span><span class="col-type">PK, INT</span></div>
+    <div class="tbl-row"><span class="col-name">medicine_name</span><span class="col-type">UNIQUE, NVARCHAR</span></div>
+    <div class="tbl-row"><span class="col-name">category</span><span class="col-type">NVARCHAR</span></div>
+    <div class="tbl-row"><span class="col-name">price</span><span class="col-type">DECIMAL</span></div>
+    <div class="tbl-row"><span class="col-name">exp_date</span><span class="col-type">DATE</span></div>
+  </div>
+</div>
+
+<!-- ══════════════════ Lab_Tests ══════════════════ -->
+<div class="tbl" id="tLabTests" style="left:1400px;top:380px;min-width:200px">
+  <div class="tbl-head h-indigo">Lab_Tests</div>
+  <div class="tbl-body">
+    <div class="tbl-row"><span class="col-name">lab_test_id</span><span class="col-type">PK, INT</span></div>
+    <div class="tbl-row"><span class="col-name">test_name</span><span class="col-type">UNIQUE, NVARCHAR</span></div>
+    <div class="tbl-row"><span class="col-name">description</span><span class="col-type">NVARCHAR</span></div>
+    <div class="tbl-row"><span class="col-name">price</span><span class="col-type">DECIMAL</span></div>
+  </div>
+</div>
+
+<!-- ══════════════════ Lab_Orders ══════════════════ -->
+<div class="tbl" id="tLabOrders" style="left:1060px;top:560px;min-width:220px">
+  <div class="tbl-head h-indigo">Lab_Orders</div>
+  <div class="tbl-body">
+    <div class="tbl-row"><span class="col-name">lab_order_id</span><span class="col-type">PK, INT</span></div>
+    <div class="tbl-row"><span class="col-name">appointment_id</span><span class="col-type">FK, INT</span></div>
+    <div class="tbl-row"><span class="col-name">lab_test_id</span><span class="col-type">FK, INT</span></div>
+    <div class="tbl-row"><span class="col-name">ordered_on</span><span class="col-type">DATETIME</span></div>
+    <div class="tbl-row"><span class="col-name">result_value</span><span class="col-type">NVARCHAR</span></div>
+    <div class="tbl-row"><span class="col-name">result_date</span><span class="col-type">DATE</span></div>
+    <div class="tbl-row"><span class="col-name">is_abnormal</span><span class="col-type">BIT</span></div>
+  </div>
+</div>
+
+<!-- ══════════════════ Bills ══════════════════ -->
+<div class="tbl" id="tBills" style="left:380px;top:1100px;min-width:230px">
+  <div class="tbl-head h-teal">Bills</div>
+  <div class="tbl-body">
+    <div class="tbl-row"><span class="col-name">bill_id</span><span class="col-type">PK, INT</span></div>
+    <div class="tbl-row"><span class="col-name">appointment_id</span><span class="col-type">FK, UNIQUE, INT</span></div>
+    <div class="tbl-row"><span class="col-name">patient_id</span><span class="col-type">FK, INT</span></div>
+    <div class="tbl-row"><span class="col-name">consult_charge</span><span class="col-type">DECIMAL</span></div>
+    <div class="tbl-row"><span class="col-name">medicine_charge</span><span class="col-type">DECIMAL</span></div>
+    <div class="tbl-row"><span class="col-name">lab_charge</span><span class="col-type">DECIMAL</span></div>
+    <div class="tbl-row"><span class="col-name">insurance_discount</span><span class="col-type">DECIMAL</span></div>
+    <div class="tbl-row"><span class="col-name">gst_on_consult</span><span class="col-type">DECIMAL</span></div>
+    <div class="tbl-row"><span class="col-name">gst_on_medicine</span><span class="col-type">DECIMAL</span></div>
+    <div class="tbl-row"><span class="col-name">gst_on_lab</span><span class="col-type">DECIMAL</span></div>
+    <div class="tbl-row"><span class="col-name">payable_amount</span><span class="col-type">DECIMAL</span></div>
+    <div class="tbl-row"><span class="col-name">payment_status</span><span class="col-type">NVARCHAR</span></div>
+    <div class="tbl-row"><span class="col-name">billed_on</span><span class="col-type">DATETIME</span></div>
+  </div>
+</div>
+
+</div><!-- end canvas -->
+
+<script>
+// ── Draw crow's foot SVG connectors ──
+const svg = document.getElementById('lines');
+const canvas = document.getElementById('canvas');
+
+function box(id) {
+  const el = document.getElementById(id);
+  const cr = canvas.getBoundingClientRect();
+  const r  = el.getBoundingClientRect();
+  return {
+    l: r.left - cr.left, r: r.right  - cr.left,
+    t: r.top  - cr.top,  b: r.bottom - cr.top,
+    cx: (r.left+r.right)/2  - cr.left,
+    cy: (r.top+r.bottom)/2  - cr.top,
+    w: r.width, h: r.height
+  };
+}
+
+function line(x1,y1,x2,y2,dash=false){
+  const p = document.createElementNS('http://www.w3.org/2000/svg','line');
+  p.setAttribute('x1',x1); p.setAttribute('y1',y1);
+  p.setAttribute('x2',x2); p.setAttribute('y2',y2);
+  p.setAttribute('stroke','#444');
+  p.setAttribute('stroke-width','1.5');
+  if(dash) p.setAttribute('stroke-dasharray','6,3');
+  svg.appendChild(p);
+}
+function path(d,dash=false){
+  const p = document.createElementNS('http://www.w3.org/2000/svg','path');
+  p.setAttribute('d',d);
+  p.setAttribute('stroke','#444');
+  p.setAttribute('stroke-width','1.5');
+  p.setAttribute('fill','none');
+  if(dash) p.setAttribute('stroke-dasharray','6,3');
+  svg.appendChild(p);
+}
+// One marker (crow's foot = 3 lines; single = | ; 1 = small tick)
+function crowFoot(x, y, dir){ // dir: 'l','r','t','b'
+  const s=10;
+  if(dir==='r'){
+    line(x,y,x+s,y-s); line(x,y,x+s,y+s); line(x,y,x+s,y);
+    line(x+s,y-s/2,x+s,y+s/2); // mandatory line
+  } else if(dir==='l'){
+    line(x,y,x-s,y-s); line(x,y,x-s,y+s); line(x,y,x-s,y);
+    line(x-s,y-s/2,x-s,y+s/2);
+  } else if(dir==='b'){
+    line(x,y,x-s,y+s); line(x,y,x+s,y+s); line(x,y,x+s,y);
+    line(x-s/2,y+s,x+s/2,y+s);
+  } else if(dir==='t'){
+    line(x,y,x-s,y-s); line(x,y,x+s,y-s); line(x,y,x-s,y);
+    line(x-s/2,y-s,x+s/2,y-s);
+  }
+}
+function tick(x, y, dir){ // "1" side marker
+  const s=8;
+  if(dir==='r'){ line(x+2,y-s,x+2,y+s); }
+  else if(dir==='l'){ line(x-2,y-s,x-2,y+s); }
+  else if(dir==='b'){ line(x-s,y+2,x+s,y+2); }
+  else if(dir==='t'){ line(x-s,y-2,x+s,y-2); }
+}
+
+// Bezier connecting two points (horizontal dominant)
+function connect(ax, ay, bx, by, dash=false){
+  const dx = Math.abs(bx-ax)*0.45;
+  path(`M${ax},${ay} C${ax+Math.sign(bx-ax)*dx},${ay} ${bx-Math.sign(bx-ax)*dx},${by} ${bx},${by}`, dash);
+}
+// Elbow connector
+function elbow(ax,ay,bx,by,dash=false){
+  const mx=(ax+bx)/2;
+  path(`M${ax},${ay} L${mx},${ay} L${mx},${by} L${bx},${by}`,dash);
+}
+
+window.addEventListener('load', () => {
+  svg.setAttribute('width', canvas.scrollWidth);
+  svg.setAttribute('height', canvas.scrollHeight);
+
+  const dep  = box('tDepartment');
+  const doc  = box('tDoctors');
+  const tt   = box('tTimeTable');
+  const pat  = box('tPatients');
+  const ins  = box('tInsurance');
+  const pi   = box('tPatIns');
+  const appt = box('tAppointments');
+  const diag = box('tDiagnosis');
+  const pres = box('tPrescriptions');
+  const pm   = box('tPresMed');
+  const med  = box('tMedicines');
+  const lt   = box('tLabTests');
+  const lo   = box('tLabOrders');
+  const bill = box('tBills');
+
+  // Department — Doctors  (1:N)
+  connect(dep.r, dep.cy, doc.l, doc.cy);
+  tick(dep.r, dep.cy, 'r');
+  crowFoot(doc.l, doc.cy, 'l');
+
+  // Doctors — Time_Table  (1:N)
+  connect(doc.r, doc.cy, tt.l, tt.cy);
+  tick(doc.r, doc.cy, 'r');
+  crowFoot(tt.l, tt.cy, 'l');
+
+  // Doctors.head_doctor → Department (1:1 self-ref — loop above)
+  elbow(doc.cx, doc.t, dep.cx, dep.t);
+
+  // Doctors — Appointments  (1:N)
+  connect(doc.b, doc.cx, appt.t, appt.cx);
+  tick(doc.b, doc.cx, 'b');
+  crowFoot(appt.t, appt.cx, 't');
+
+  // Patients — Appointments  (1:N)
+  connect(pat.r, pat.cy, appt.l, appt.cy);
+  tick(pat.r, pat.cy, 'r');
+  crowFoot(appt.l, appt.cy, 'l');
+
+  // Insurance — Patients_Insurance  (1:N)
+  connect(ins.b, ins.cx, pi.t, pi.cx);
+  tick(ins.b, ins.cx, 'b');
+  crowFoot(pi.t, pi.cx, 't');
+
+  // Patients — Patients_Insurance  (1:N)
+  elbow(pat.l, pat.cy, pi.r, pi.cy);
+  tick(pat.l, pat.cy, 'l');
+  crowFoot(pi.r, pi.cy, 'r');
+
+  // Appointments — Diagnosis  (1:1)
+  connect(appt.r, appt.cy, diag.l, diag.cy);
+  tick(appt.r, appt.cy, 'r');
+  tick(diag.l, diag.cy, 'l');
+
+  // Appointments — Prescriptions  (1:1)
+  connect(appt.b, appt.cx, pres.t, pres.cx);
+  tick(appt.b, appt.cx, 'b');
+  tick(pres.t, pres.cx, 't');
+
+  // Prescriptions — Prescription_Medicines  (1:N)
+  connect(pres.r, pres.cy, pm.l, pm.cy);
+  tick(pres.r, pres.cy, 'r');
+  crowFoot(pm.l, pm.cy, 'l');
+
+  // Medicines — Prescription_Medicines  (1:N)
+  connect(med.l, med.cy, pm.r, pm.cy);
+  tick(med.l, med.cy, 'l');
+  crowFoot(pm.r, pm.cy, 'r');
+
+  // Appointments — Lab_Orders  (1:N)
+  connect(appt.r, appt.b-40, lo.l, lo.cy);
+  tick(appt.r, appt.b-40, 'r');
+  crowFoot(lo.l, lo.cy, 'l');
+
+  // Lab_Tests — Lab_Orders  (1:N)
+  connect(lt.l, lt.cy, lo.r, lo.cy);
+  tick(lt.l, lt.cy, 'l');
+  crowFoot(lo.r, lo.cy, 'r');
+
+  // Appointments — Bills  (1:1)
+  elbow(appt.b, appt.l+30, bill.t, bill.cx);
+  tick(appt.b, appt.l+30, 'b');
+  tick(bill.t, bill.cx, 't');
+
+  // Patients — Bills  (1:N)
+  elbow(pat.b, pat.cx, bill.l, bill.cy);
+  tick(pat.b, pat.cx, 'b');
+  crowFoot(bill.l, bill.cy, 'l');
+});
+</script>
+</body>
+</html>
