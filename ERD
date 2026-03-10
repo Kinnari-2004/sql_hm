@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MediCare+ ER Diagram</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,300;9..144,600;9..144,700&family=DM+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg:        #0b0f1a;
+    --surface:   #111827;
+    --border:    #1e2d45;
+    --accent1:   #38bdf8;   /* sky  */
+    --accent2:   #34d399;   /* emerald */
+    --accent3:   #f472b6;   /* pink */
+    --accent4:   #fb923c;   /* orange */
+    --accent5:   #a78bfa;   /* violet */
+    --accent6:   #facc15;   /* yellow */
+    --text:      #e2e8f0;
+    --muted:     #64748b;
+    --pk:        #38bdf8;
+    --fk:        #fb923c;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    font-family: 'DM Sans', sans-serif;
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: auto;
+  }
+
+  /* ── header ── */
+  header {
+    text-align: center;
+    padding: 36px 24px 20px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, #0d1422 0%, var(--bg) 100%);
+  }
+  header h1 {
+    font-family: 'Fraunces', serif;
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #fff;
+  }
+  header p {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 6px;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  /* ── legend ── */
+  .legend {
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+    flex-wrap: wrap;
+    padding: 14px 24px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    font-size: 0.75rem;
+    font-family: 'DM Mono', monospace;
+  }
+  .legend-item { display: flex; align-items: center; gap: 7px; }
+  .leg-box {
+    width: 12px; height: 12px; border-radius: 3px;
+  }
+  .leg-pk  { background: var(--pk);  }
+  .leg-fk  { background: var(--fk);  }
+  .leg-col { background: var(--muted); }
+
+  /* ── canvas wrapper ── */
+  .canvas {
+    position: relative;
+    width: 2300px;
+    min-height: 1620px;
+    margin: 0 auto;
+    padding: 40px;
+  }
+
+  /* ── svg connector layer ── */
+  #connectors {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    overflow: visible;
+  }
+
+  /* ── entity table ── */
+  .entity {
+    position: absolute;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    min-width: 220px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    transition: box-shadow 0.2s;
+  }
+  .entity:hover {
+    box-shadow: 0 12px 48px rgba(56,189,248,0.15);
+    z-index: 100;
+  }
+
+  .entity-header {
+    padding: 9px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Fraunces', serif;
+    font-size: 0.92rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    border-bottom: 1px solid var(--border);
+  }
+  .entity-header .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .entity-body { padding: 6px 0; }
+
+  .col-row {
+    display: flex;
+    align-items: center;
+    padding: 3px 14px;
+    gap: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    line-height: 1.6;
+    transition: background 0.15s;
+  }
+  .col-row:hover { background: rgba(255,255,255,0.03); }
+
+  .col-badge {
+    font-size: 0.6rem;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-weight: 500;
+    flex-shrink: 0;
+    min-width: 26px;
+    text-align: center;
+  }
+  .badge-pk  { background: rgba(56,189,248,0.18); color: var(--pk); }
+  .badge-fk  { background: rgba(251,146,60,0.18);  color: var(--fk); }
+  .badge-col { background: rgba(100,116,139,0.15); color: var(--muted); }
+
+  .col-name  { color: var(--text); flex: 1; }
+  .col-type  { color: var(--muted); font-size: 0.66rem; }
+
+  /* ── connector lines (SVG) ── */
+  .conn { stroke-width: 1.5; fill: none; }
+  .conn-1n { stroke: var(--accent2); stroke-dasharray: none; }
+  .conn-mn { stroke: var(--accent3); stroke-dasharray: 5,3; }
+  .conn-11 { stroke: var(--accent1); stroke-dasharray: none; }
+
+  /* cardinality text */
+  .card-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    fill: #94a3b8;
+  }
+
+  /* section label */
+  .section-label {
+    position: absolute;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: rgba(17,24,39,0.8);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>MediCare+ Hospital &amp; Clinic Management System</h1>
+  <p>Entity-Relationship Diagram · SQL Server · 12 Tables</p>
+</header>
+
+<div class="legend">
+  <div class="legend-item"><div class="leg-box leg-pk"></div><span>Primary Key (PK)</span></div>
+  <div class="legend-item"><div class="leg-box leg-fk"></div><span>Foreign Key (FK)</span></div>
+  <div class="legend-item"><div class="leg-box leg-col"></div><span>Attribute</span></div>
+  <div class="legend-item" style="color:#34d399">── 1:N relationship</div>
+  <div class="legend-item" style="color:#f472b6">╌╌ M:N (via junction)</div>
+  <div class="legend-item" style="color:#38bdf8">── 1:1 relationship</div>
+</div>
+
+<div class="canvas" id="canvas">
+
+  <!-- SVG connector layer (drawn by JS) -->
+  <svg id="connectors"></svg>
+
+  <!-- ═══════════════ ENTITY: Departments ═══════════════ -->
+  <div class="entity" id="eDepartments" style="left:80px;top:80px;min-width:240px">
+    <div class="entity-header" style="background:rgba(56,189,248,0.12)">
+      <div class="dot" style="background:#38bdf8"></div>Departments
+    </div>
+    <div class="entity-body">
+      <div class="col-row"><span class="col-badge badge-pk">PK</span><span class="col-name">DepartmentID</span><span class="col-type">INT</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">DeptName</span><span class="col-type">NVARCHAR(100)</span></div>
+      <div class="col-row"><span class="col-badge badge-fk">FK</span><span class="col-name">HeadDoctorID</span><span class="col-type">INT</span></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ ENTITY: Doctors ═══════════════ -->
+  <div class="entity" id="eDoctors" style="left:430px;top:60px;min-width:250px">
+    <div class="entity-header" style="background:rgba(56,189,248,0.12)">
+      <div class="dot" style="background:#38bdf8"></div>Doctors
+    </div>
+    <div class="entity-body">
+      <div class="col-row"><span class="col-badge badge-pk">PK</span><span class="col-name">DoctorID</span><span class="col-type">INT</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">FirstName</span><span class="col-type">NVARCHAR(50)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">LastName</span><span class="col-type">NVARCHAR(50)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">Specialisation</span><span class="col-type">NVARCHAR(100)</span></div>
+      <div class="col-row"><span class="col-badge badge-fk">FK</span><span class="col-name">DepartmentID</span><span class="col-type">INT</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">ConsultFee</span><span class="col-type">DECIMAL(10,2)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">IsActive</span><span class="col-type">BIT</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">Phone</span><span class="col-type">NVARCHAR(15)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">Email</span><span class="col-type">NVARCHAR(100)</span></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ ENTITY: DoctorSchedules ═══════════════ -->
+  <div class="entity" id="eDoctorSchedules" style="left:430px;top:320px;min-width:240px">
+    <div class="entity-header" style="background:rgba(52,211,153,0.10)">
+      <div class="dot" style="background:#34d399"></div>DoctorSchedules
+    </div>
+    <div class="entity-body">
+      <div class="col-row"><span class="col-badge badge-pk">PK</span><span class="col-name">ScheduleID</span><span class="col-type">INT</span></div>
+      <div class="col-row"><span class="col-badge badge-fk">FK</span><span class="col-name">DoctorID</span><span class="col-type">INT</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">DayOfWeek</span><span class="col-type">NVARCHAR(10)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">TimeSlot</span><span class="col-type">NVARCHAR(20)</span></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ ENTITY: Patients ═══════════════ -->
+  <div class="entity" id="ePatients" style="left:80px;top:480px;min-width:240px">
+    <div class="entity-header" style="background:rgba(167,139,250,0.12)">
+      <div class="dot" style="background:#a78bfa"></div>Patients
+    </div>
+    <div class="entity-body">
+      <div class="col-row"><span class="col-badge badge-pk">PK</span><span class="col-name">PatientID</span><span class="col-type">INT</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">FirstName</span><span class="col-type">NVARCHAR(50)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">LastName</span><span class="col-type">NVARCHAR(50)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">DateOfBirth</span><span class="col-type">DATE</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">Gender</span><span class="col-type">NVARCHAR(10)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">Phone</span><span class="col-type">NVARCHAR(15)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">Email</span><span class="col-type">NVARCHAR(100)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">Address</span><span class="col-type">NVARCHAR(255)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">RegisteredOn</span><span class="col-type">DATE</span></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ ENTITY: InsurancePolicies ═══════════════ -->
+  <div class="entity" id="eInsurance" style="left:80px;top:760px;min-width:240px">
+    <div class="entity-header" style="background:rgba(167,139,250,0.12)">
+      <div class="dot" style="background:#a78bfa"></div>InsurancePolicies
+    </div>
+    <div class="entity-body">
+      <div class="col-row"><span class="col-badge badge-pk">PK</span><span class="col-name">PolicyID</span><span class="col-type">INT</span></div>
+      <div class="col-row"><span class="col-badge badge-fk">FK</span><span class="col-name">PatientID</span><span class="col-type">INT</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">ProviderName</span><span class="col-type">NVARCHAR(100)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">PolicyNumber</span><span class="col-type">NVARCHAR(50)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">CoveragePercent</span><span class="col-type">DECIMAL(5,2)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">YearlyMaximum</span><span class="col-type">DECIMAL(12,2)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">StartDate</span><span class="col-type">DATE</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">EndDate</span><span class="col-type">DATE</span></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ ENTITY: Appointments ═══════════════ -->
+  <div class="entity" id="eAppointments" style="left:830px;top:420px;min-width:250px">
+    <div class="entity-header" style="background:rgba(251,146,60,0.12)">
+      <div class="dot" style="background:#fb923c"></div>Appointments
+    </div>
+    <div class="entity-body">
+      <div class="col-row"><span class="col-badge badge-pk">PK</span><span class="col-name">AppointmentID</span><span class="col-type">INT</span></div>
+      <div class="col-row"><span class="col-badge badge-fk">FK</span><span class="col-name">PatientID</span><span class="col-type">INT</span></div>
+      <div class="col-row"><span class="col-badge badge-fk">FK</span><span class="col-name">DoctorID</span><span class="col-type">INT</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">ApptDate</span><span class="col-type">DATE</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">TimeSlot</span><span class="col-type">NVARCHAR(20)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">Status</span><span class="col-type">NVARCHAR(15)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">Notes</span><span class="col-type">NVARCHAR(500)</span></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ ENTITY: MedicalRecords ═══════════════ -->
+  <div class="entity" id="eMedicalRecords" style="left:1240px;top:340px;min-width:250px">
+    <div class="entity-header" style="background:rgba(52,211,153,0.10)">
+      <div class="dot" style="background:#34d399"></div>MedicalRecords
+    </div>
+    <div class="entity-body">
+      <div class="col-row"><span class="col-badge badge-pk">PK</span><span class="col-name">RecordID</span><span class="col-type">INT</span></div>
+      <div class="col-row"><span class="col-badge badge-fk">FK</span><span class="col-name">AppointmentID</span><span class="col-type">INT (UNIQUE)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">Diagnosis</span><span class="col-type">NVARCHAR(500)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">TreatmentPlan</span><span class="col-type">NVARCHAR(1000)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">RequiresFollowUp</span><span class="col-type">BIT</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">CreatedAt</span><span class="col-type">DATETIME</span></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ ENTITY: Medicines ═══════════════ -->
+  <div class="entity" id="eMedicines" style="left:830px;top:860px;min-width:240px">
+    <div class="entity-header" style="background:rgba(244,114,182,0.10)">
+      <div class="dot" style="background:#f472b6"></div>Medicines
+    </div>
+    <div class="entity-body">
+      <div class="col-row"><span class="col-badge badge-pk">PK</span><span class="col-name">MedicineID</span><span class="col-type">INT</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">MedName</span><span class="col-type">NVARCHAR(100)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">Category</span><span class="col-type">NVARCHAR(50)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">UnitPrice</span><span class="col-type">DECIMAL(10,2)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">Unit</span><span class="col-type">NVARCHAR(20)</span></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ ENTITY: Prescriptions ═══════════════ -->
+  <div class="entity" id="ePrescriptions" style="left:1240px;top:820px;min-width:250px">
+    <div class="entity-header" style="background:rgba(244,114,182,0.10)">
+      <div class="dot" style="background:#f472b6"></div>Prescriptions
+    </div>
+    <div class="entity-body">
+      <div class="col-row"><span class="col-badge badge-pk">PK</span><span class="col-name">PrescriptionID</span><span class="col-type">INT</span></div>
+      <div class="col-row"><span class="col-badge badge-fk">FK</span><span class="col-name">AppointmentID</span><span class="col-type">INT</span></div>
+      <div class="col-row"><span class="col-badge badge-fk">FK</span><span class="col-name">MedicineID</span><span class="col-type">INT</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">Dosage</span><span class="col-type">NVARCHAR(50)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">DurationDays</span><span class="col-type">INT</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">Quantity</span><span class="col-type">INT</span></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ ENTITY: LabTests ═══════════════ -->
+  <div class="entity" id="eLabTests" style="left:830px;top:1150px;min-width:240px">
+    <div class="entity-header" style="background:rgba(250,204,21,0.10)">
+      <div class="dot" style="background:#facc15"></div>LabTests
+    </div>
+    <div class="entity-body">
+      <div class="col-row"><span class="col-badge badge-pk">PK</span><span class="col-name">LabTestID</span><span class="col-type">INT</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">TestName</span><span class="col-type">NVARCHAR(100)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">Description</span><span class="col-type">NVARCHAR(500)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">Price</span><span class="col-type">DECIMAL(10,2)</span></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ ENTITY: LabOrders ═══════════════ -->
+  <div class="entity" id="eLabOrders" style="left:1240px;top:1100px;min-width:250px">
+    <div class="entity-header" style="background:rgba(250,204,21,0.10)">
+      <div class="dot" style="background:#facc15"></div>LabOrders
+    </div>
+    <div class="entity-body">
+      <div class="col-row"><span class="col-badge badge-pk">PK</span><span class="col-name">LabOrderID</span><span class="col-type">INT</span></div>
+      <div class="col-row"><span class="col-badge badge-fk">FK</span><span class="col-name">AppointmentID</span><span class="col-type">INT</span></div>
+      <div class="col-row"><span class="col-badge badge-fk">FK</span><span class="col-name">LabTestID</span><span class="col-type">INT</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">OrderedOn</span><span class="col-type">DATETIME</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">ResultValue</span><span class="col-type">NVARCHAR(200)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">ResultDate</span><span class="col-type">DATE</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">IsAbnormal</span><span class="col-type">BIT</span></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ ENTITY: Billing ═══════════════ -->
+  <div class="entity" id="eBilling" style="left:1700px;top:420px;min-width:260px">
+    <div class="entity-header" style="background:rgba(52,211,153,0.10)">
+      <div class="dot" style="background:#34d399"></div>Billing
+    </div>
+    <div class="entity-body">
+      <div class="col-row"><span class="col-badge badge-pk">PK</span><span class="col-name">BillID</span><span class="col-type">INT</span></div>
+      <div class="col-row"><span class="col-badge badge-fk">FK</span><span class="col-name">AppointmentID</span><span class="col-type">INT (UNIQUE)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">ConsultCharge</span><span class="col-type">DECIMAL(10,2)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">MedicineCharge</span><span class="col-type">DECIMAL(10,2)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">LabCharge</span><span class="col-type">DECIMAL(10,2)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">InsuranceDiscount</span><span class="col-type">DECIMAL(10,2)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">GSTOnConsult</span><span class="col-type">DECIMAL(10,2)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">GSTOnMedicine</span><span class="col-type">DECIMAL(10,2)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">GSTOnLab</span><span class="col-type">DECIMAL(10,2)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">FinalAmount</span><span class="col-type">DECIMAL(10,2)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">PaymentStatus</span><span class="col-type">NVARCHAR(15)</span></div>
+      <div class="col-row"><span class="col-badge badge-col">  </span><span class="col-name">BilledOn</span><span class="col-type">DATETIME</span></div>
+    </div>
+  </div>
+
+</div><!-- end canvas -->
+
+<script>
+// ──────────────────────────────────────────────
+// Draw SVG connectors between entities
+// ──────────────────────────────────────────────
+function getCenter(el) {
+  const r = el.getBoundingClientRect();
+  const cr = document.getElementById('canvas').getBoundingClientRect();
+  return {
+    x: r.left - cr.left + r.width  / 2,
+    y: r.top  - cr.top  + r.height / 2,
+    l: r.left - cr.left,
+    r: r.right - cr.left,
+    t: r.top  - cr.top,
+    b: r.bottom - cr.top,
+    w: r.width,
+    h: r.height
+  };
+}
+
+function midRight(el) { const c=getCenter(el); return {x:c.r, y:c.y}; }
+function midLeft(el)  { const c=getCenter(el); return {x:c.l, y:c.y}; }
+function midBot(el)   { const c=getCenter(el); return {x:c.x, y:c.b}; }
+function midTop(el)   { const c=getCenter(el); return {x:c.x, y:c.t}; }
+
+function bezier(x1,y1,x2,y2) {
+  const dx = Math.abs(x2-x1)*0.5;
+  return `M${x1},${y1} C${x1+dx},${y1} ${x2-dx},${y2} ${x2},${y2}`;
+}
+function straight(x1,y1,x2,y2) {
+  return `M${x1},${y1} L${x2},${y2}`;
+}
+function elbow(x1,y1,x2,y2) {
+  const mx = (x1+x2)/2;
+  return `M${x1},${y1} L${mx},${y1} L${mx},${y2} L${x2},${y2}`;
+}
+
+function makePath(d, cls, extra='') {
+  const p = document.createElementNS('http://www.w3.org/2000/svg','path');
+  p.setAttribute('d', d);
+  p.setAttribute('class', 'conn '+cls);
+  if (extra) p.setAttribute('style', extra);
+  return p;
+}
+
+function makeText(x, y, txt) {
+  const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+  t.setAttribute('x', x); t.setAttribute('y', y);
+  t.setAttribute('class','card-label');
+  t.setAttribute('text-anchor','middle');
+  t.textContent = txt;
+  return t;
+}
+
+// marker arrowhead
+function addMarker(svg, id, color) {
+  const defs = svg.querySelector('defs') || svg.insertBefore(
+    document.createElementNS('http://www.w3.org/2000/svg','defs'),
+    svg.firstChild
+  );
+  const m = document.createElementNS('http://www.w3.org/2000/svg','marker');
+  m.setAttribute('id', id);
+  m.setAttribute('markerWidth','8');
+  m.setAttribute('markerHeight','8');
+  m.setAttribute('refX','6');
+  m.setAttribute('refY','3');
+  m.setAttribute('orient','auto');
+  const poly = document.createElementNS('http://www.w3.org/2000/svg','path');
+  poly.setAttribute('d','M0,0 L0,6 L8,3 z');
+  poly.setAttribute('fill', color);
+  m.appendChild(poly);
+  defs.appendChild(m);
+}
+
+window.addEventListener('load', () => {
+  const svg = document.getElementById('connectors');
+  const canvas = document.getElementById('canvas');
+  svg.setAttribute('width',  canvas.scrollWidth);
+  svg.setAttribute('height', canvas.scrollHeight);
+
+  addMarker(svg,'arrow-green','#34d399');
+  addMarker(svg,'arrow-pink', '#f472b6');
+  addMarker(svg,'arrow-sky',  '#38bdf8');
+  addMarker(svg,'arrow-orange','#fb923c');
+
+  const E = id => document.getElementById(id);
+
+  // helper — draw a line from right-edge of A to left-edge of B, with cardinality labels
+  function connect(fromId, toId, cls, fromCard, toCard, style='bezier') {
+    const a = E(fromId), b = E(toId);
+    const ca = getCenter(a), cb = getCenter(b);
+    let p1, p2, d;
+
+    // choose exit/entry sides based on relative position
+    if (Math.abs(ca.x - cb.x) > Math.abs(ca.y - cb.y)) {
+      // horizontal dominant
+      if (ca.x < cb.x) { p1={x:ca.r,y:ca.y}; p2={x:cb.l,y:cb.y}; }
+      else              { p1={x:ca.l,y:ca.y}; p2={x:cb.r,y:cb.y}; }
+    } else {
+      // vertical dominant
+      if (ca.y < cb.y) { p1={x:ca.x,y:ca.b}; p2={x:cb.x,y:cb.t}; }
+      else             { p1={x:ca.x,y:ca.t}; p2={x:cb.x,y:cb.b}; }
+    }
+
+    d = bezier(p1.x,p1.y,p2.x,p2.y);
+
+    const color = cls==='conn-1n'?'#34d399': cls==='conn-mn'?'#f472b6':'#38bdf8';
+    const path = makePath(d, cls, `marker-end:url(#arrow-${
+      cls==='conn-1n'?'green':cls==='conn-mn'?'pink':'sky'})`);
+    svg.appendChild(path);
+
+    // cardinality labels
+    const ox=10, oy=-8;
+    svg.appendChild(makeText(p1.x+ox, p1.y+oy, fromCard));
+    svg.appendChild(makeText(p2.x-ox, p2.y+oy, toCard));
+  }
+
+  // ── Departments ↔ Doctors (1:N — a dept has many doctors)
+  connect('eDepartments','eDoctors',   'conn-1n','1','N');
+  // ── Departments.HeadDoctorID → Doctors (1:1)
+  // (drawn as a short curve back — skip to keep clean)
+
+  // ── Doctors → DoctorSchedules (1:N)
+  connect('eDoctors','eDoctorSchedules','conn-1n','1','N');
+
+  // ── Patients → InsurancePolicies (1:N)
+  connect('ePatients','eInsurance',    'conn-1n','1','N');
+
+  // ── Patients → Appointments (1:N)
+  connect('ePatients','eAppointments', 'conn-1n','1','N');
+
+  // ── Doctors → Appointments (1:N)
+  connect('eDoctors','eAppointments',  'conn-1n','1','N');
+
+  // ── Appointments → MedicalRecords (1:1)
+  connect('eAppointments','eMedicalRecords','conn-11','1','1');
+
+  // ── Appointments → Prescriptions (1:N)
+  connect('eAppointments','ePrescriptions','conn-1n','1','N');
+
+  // ── Medicines → Prescriptions (1:N)
+  connect('eMedicines','ePrescriptions','conn-1n','1','N');
+
+  // ── Appointments → LabOrders (1:N)
+  connect('eAppointments','eLabOrders','conn-1n','1','N');
+
+  // ── LabTests → LabOrders (1:N)
+  connect('eLabTests','eLabOrders',   'conn-1n','1','N');
+
+  // ── Appointments → Billing (1:1)
+  connect('eAppointments','eBilling', 'conn-11','1','1');
+});
+</script>
+
+<!-- ── Relationship summary footer ── -->
+<div style="background:#111827;border-top:1px solid #1e2d45;padding:24px 40px;font-family:'DM Mono',monospace;font-size:0.72rem;color:#64748b;overflow-x:auto;">
+  <div style="display:flex;flex-wrap:wrap;gap:12px 40px;max-width:1400px;margin:0 auto;">
+    <div style="color:#94a3b8;font-size:0.8rem;margin-bottom:6px;width:100%;font-family:'Fraunces',serif;font-size:0.9rem;">Relationship Summary</div>
+    <span>Departments →<span style="color:#34d399"> 1:N </span>→ Doctors</span>
+    <span>Departments ←<span style="color:#38bdf8"> 1:1 </span>← Doctors (HeadDoctorID)</span>
+    <span>Doctors →<span style="color:#34d399"> 1:N </span>→ DoctorSchedules</span>
+    <span>Patients →<span style="color:#34d399"> 1:N </span>→ InsurancePolicies</span>
+    <span>Patients →<span style="color:#34d399"> 1:N </span>→ Appointments</span>
+    <span>Doctors →<span style="color:#34d399"> 1:N </span>→ Appointments</span>
+    <span>Appointments →<span style="color:#38bdf8"> 1:1 </span>→ MedicalRecords</span>
+    <span>Appointments →<span style="color:#34d399"> 1:N </span>→ Prescriptions</span>
+    <span>Medicines →<span style="color:#34d399"> 1:N </span>→ Prescriptions</span>
+    <span>Appointments →<span style="color:#34d399"> 1:N </span>→ LabOrders</span>
+    <span>LabTests →<span style="color:#34d399"> 1:N </span>→ LabOrders</span>
+    <span>Appointments →<span style="color:#38bdf8"> 1:1 </span>→ Billing</span>
+  </div>
+</div>
+
+</body>
+</html>
