@@ -1,0 +1,497 @@
+/* =====================================================
+   Hospital & Clinic Management System
+   Complete SQL Server Script
+   ===================================================== */
+
+CREATE DATABASE HospitalDB;
+GO
+
+USE HospitalDB;
+GO
+
+
+/* =====================================================
+   SECTION 1 — TABLES
+   ===================================================== */
+
+CREATE TABLE Departments(
+DepartmentID INT IDENTITY PRIMARY KEY,
+DepartmentName VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE Doctors(
+DoctorID INT IDENTITY PRIMARY KEY,
+DoctorName VARCHAR(100),
+Specialization VARCHAR(100),
+ConsultationFee DECIMAL(10,2),
+DepartmentID INT,
+IsActive BIT DEFAULT 1,
+FOREIGN KEY (DepartmentID) REFERENCES Departments(DepartmentID)
+);
+
+CREATE TABLE Patients(
+PatientID INT IDENTITY PRIMARY KEY,
+PatientName VARCHAR(100),
+DOB DATE,
+Phone VARCHAR(15),
+Address VARCHAR(200),
+InsurancePercent INT DEFAULT 0,
+InsuranceMax DECIMAL(10,2)
+);
+
+CREATE TABLE Appointments(
+AppointmentID INT IDENTITY PRIMARY KEY,
+PatientID INT,
+DoctorID INT,
+AppointmentDate DATE,
+TimeSlot VARCHAR(20),
+Status VARCHAR(20) CHECK(Status IN ('Scheduled','Completed','Cancelled')),
+FOREIGN KEY (PatientID) REFERENCES Patients(PatientID),
+FOREIGN KEY (DoctorID) REFERENCES Doctors(DoctorID)
+);
+
+CREATE TABLE MedicalRecords(
+RecordID INT IDENTITY PRIMARY KEY,
+AppointmentID INT,
+Diagnosis VARCHAR(200),
+TreatmentPlan VARCHAR(200),
+RequiresFollowUp BIT DEFAULT 0,
+FOREIGN KEY (AppointmentID) REFERENCES Appointments(AppointmentID)
+);
+
+CREATE TABLE Medicines(
+MedicineID INT IDENTITY PRIMARY KEY,
+MedicineName VARCHAR(100),
+Price DECIMAL(10,2)
+);
+
+CREATE TABLE Prescriptions(
+PrescriptionID INT IDENTITY PRIMARY KEY,
+RecordID INT,
+MedicineID INT,
+Dosage VARCHAR(50),
+DurationDays INT,
+Quantity INT,
+FOREIGN KEY (RecordID) REFERENCES MedicalRecords(RecordID),
+FOREIGN KEY (MedicineID) REFERENCES Medicines(MedicineID)
+);
+
+CREATE TABLE LabTests(
+TestID INT IDENTITY PRIMARY KEY,
+TestName VARCHAR(100),
+Cost DECIMAL(10,2)
+);
+
+CREATE TABLE LabOrders(
+LabOrderID INT IDENTITY PRIMARY KEY,
+AppointmentID INT,
+TestID INT,
+Result VARCHAR(200),
+IsAbnormal BIT DEFAULT 0,
+FOREIGN KEY (AppointmentID) REFERENCES Appointments(AppointmentID),
+FOREIGN KEY (TestID) REFERENCES LabTests(TestID)
+);
+
+CREATE TABLE Billing(
+BillID INT IDENTITY PRIMARY KEY,
+AppointmentID INT UNIQUE,
+ConsultationFee DECIMAL(10,2),
+MedicineCost DECIMAL(10,2),
+LabCost DECIMAL(10,2),
+InsuranceDiscount DECIMAL(10,2),
+GSTAmount DECIMAL(10,2),
+FinalAmount DECIMAL(10,2),
+PaymentStatus VARCHAR(20) DEFAULT 'Pending',
+BillDate DATETIME DEFAULT GETDATE(),
+FOREIGN KEY (AppointmentID) REFERENCES Appointments(AppointmentID)
+);
+
+
+
+/* =====================================================
+   SECTION 2 — SAMPLE DATA
+   ===================================================== */
+
+INSERT INTO Departments VALUES
+('Cardiology'),
+('Orthopaedics'),
+('Pathology');
+
+INSERT INTO Doctors VALUES
+('Dr Sharma','Cardiologist',1000,1,1),
+('Dr Mehta','Orthopaedic',900,2,1),
+('Dr Khan','Pathologist',700,3,1);
+
+INSERT INTO Patients VALUES
+('Rahul Shah','1995-05-10','9876543210','Mumbai',20,50000),
+('Priya Patel','1998-02-15','9876543222','Pune',0,0);
+
+INSERT INTO Medicines VALUES
+('Paracetamol',10),
+('Amoxicillin',20),
+('Ibuprofen',15);
+
+INSERT INTO LabTests VALUES
+('Blood Test',500),
+('X-Ray',800);
+
+
+
+/* =====================================================
+   SECTION A — STORED PROCEDURES
+   ===================================================== */
+
+/* A1 Monthly Department Report */
+
+CREATE PROCEDURE sp_MonthlyDepartmentReport
+@Month INT,
+@Year INT
+AS
+BEGIN
+SELECT
+d.DepartmentName,
+COUNT(a.AppointmentID) TotalAppointments,
+COUNT(DISTINCT a.PatientID) UniquePatients,
+SUM(doc.ConsultationFee) TotalConsultationRevenue
+FROM Departments d
+LEFT JOIN Doctors doc ON d.DepartmentID=doc.DepartmentID
+LEFT JOIN Appointments a
+ON doc.DoctorID=a.DoctorID
+AND MONTH(a.AppointmentDate)=@Month
+AND YEAR(a.AppointmentDate)=@Year
+AND a.Status='Completed'
+GROUP BY d.DepartmentName;
+END
+GO
+
+
+
+/* A2 Patient Billing History */
+
+CREATE PROCEDURE sp_PatientBillingHistory
+@PatientID INT
+AS
+BEGIN
+
+IF NOT EXISTS (SELECT 1 FROM Patients WHERE PatientID=@PatientID)
+THROW 50001,'Patient ID not found',1;
+
+SELECT
+a.AppointmentDate,
+d.DoctorName,
+b.ConsultationFee,
+b.MedicineCost,
+b.LabCost,
+b.InsuranceDiscount,
+b.GSTAmount,
+b.FinalAmount
+FROM Billing b
+JOIN Appointments a ON b.AppointmentID=a.AppointmentID
+JOIN Doctors d ON a.DoctorID=d.DoctorID
+WHERE a.PatientID=@PatientID;
+
+SELECT SUM(FinalAmount) AS GrandTotal
+FROM Billing b
+JOIN Appointments a ON b.AppointmentID=a.AppointmentID
+WHERE a.PatientID=@PatientID;
+
+END
+GO
+
+
+
+/* A3 Doctor Performance Report */
+
+CREATE PROCEDURE sp_DoctorPerformance
+@MinAppointments INT
+AS
+BEGIN
+
+SELECT
+d.DoctorName,
+COUNT(a.AppointmentID) TotalAppointments,
+SUM(CASE WHEN a.Status='Completed' THEN 1 ELSE 0 END) CompletedAppointments,
+SUM(b.FinalAmount) RevenueGenerated,
+COUNT(DISTINCT m.Diagnosis) UniqueDiagnoses
+FROM Doctors d
+LEFT JOIN Appointments a ON d.DoctorID=a.DoctorID
+LEFT JOIN Billing b ON a.AppointmentID=b.AppointmentID
+LEFT JOIN MedicalRecords m ON a.AppointmentID=m.AppointmentID
+GROUP BY d.DoctorName
+HAVING COUNT(a.AppointmentID)>=@MinAppointments
+ORDER BY RevenueGenerated DESC;
+
+END
+GO
+
+
+
+/* A4 Medicines Never Prescribed */
+
+CREATE PROCEDURE sp_MedicinesNeverPrescribed
+AS
+BEGIN
+
+-- Method 1: Subquery
+
+SELECT MedicineID,MedicineName
+FROM Medicines
+WHERE MedicineID NOT IN
+(
+SELECT MedicineID FROM Prescriptions
+);
+
+-- Method 2: SET operation
+
+SELECT MedicineID,MedicineName
+FROM Medicines
+
+EXCEPT
+
+SELECT m.MedicineID,m.MedicineName
+FROM Medicines m
+JOIN Prescriptions p
+ON m.MedicineID=p.MedicineID;
+
+END
+GO
+
+
+
+/* A5 Monthly Revenue vs Target */
+
+CREATE PROCEDURE sp_RevenueTarget
+AS
+BEGIN
+
+WITH RevenueData AS
+(
+SELECT
+YEAR(BillDate) Yr,
+MONTH(BillDate) Mn,
+SUM(FinalAmount) Revenue
+FROM Billing
+GROUP BY YEAR(BillDate),MONTH(BillDate)
+)
+
+SELECT
+Yr,
+Mn,
+Revenue,
+CASE WHEN Revenue>=500000 THEN 'Yes' ELSE 'No' END AS TargetMet,
+Revenue-500000 AS SurplusOrDeficit
+FROM RevenueData;
+
+END
+GO
+
+
+
+
+/* =====================================================
+   SECTION B — TRIGGERS
+   ===================================================== */
+
+
+/* B1 Prevent Doctor Double Booking */
+
+CREATE TRIGGER trg_PreventDoubleBooking
+ON Appointments
+AFTER INSERT
+AS
+BEGIN
+
+IF EXISTS
+(
+SELECT 1
+FROM Appointments a
+JOIN inserted i
+ON a.DoctorID=i.DoctorID
+AND a.AppointmentDate=i.AppointmentDate
+AND a.TimeSlot=i.TimeSlot
+AND a.AppointmentID<>i.AppointmentID
+AND a.Status IN ('Scheduled','Completed')
+)
+
+BEGIN
+ROLLBACK;
+THROW 50002,'Doctor already booked at this time slot',1;
+END
+
+END
+GO
+
+
+
+/* B2 Auto Generate Bill */
+
+CREATE TRIGGER trg_GenerateBill
+ON Appointments
+AFTER UPDATE
+AS
+BEGIN
+
+INSERT INTO Billing
+(AppointmentID,ConsultationFee,MedicineCost,LabCost,InsuranceDiscount,GSTAmount,FinalAmount)
+
+SELECT
+i.AppointmentID,
+d.ConsultationFee,
+0,
+0,
+0,
+0,
+d.ConsultationFee
+FROM inserted i
+JOIN Doctors d ON i.DoctorID=d.DoctorID
+WHERE i.Status='Completed';
+
+END
+GO
+
+
+
+/* B3 Lab Abnormal FollowUp */
+
+CREATE TRIGGER trg_LabFollowUp
+ON LabOrders
+AFTER INSERT,UPDATE
+AS
+BEGIN
+
+UPDATE m
+SET RequiresFollowUp=1
+FROM MedicalRecords m
+JOIN inserted i
+ON m.AppointmentID=i.AppointmentID
+WHERE i.IsAbnormal=1;
+
+END
+GO
+
+
+
+
+/* =====================================================
+   SECTION C — FUNCTIONS
+   ===================================================== */
+
+
+/* C1 Patient Age Function */
+
+CREATE FUNCTION fn_GetPatientAge(@PatientID INT)
+RETURNS INT
+AS
+BEGIN
+
+DECLARE @age INT;
+
+SELECT @age = DATEDIFF(YEAR,DOB,GETDATE())
+FROM Patients
+WHERE PatientID=@PatientID;
+
+RETURN @age;
+
+END
+GO
+
+
+SELECT PatientName,
+dbo.fn_GetPatientAge(PatientID) AS Age
+FROM Patients;
+
+
+
+/* C2 Net Bill Calculator */
+
+CREATE FUNCTION fn_CalculateNetBill
+(
+@Consultation DECIMAL(10,2),
+@Medicine DECIMAL(10,2),
+@Lab DECIMAL(10,2),
+@InsurancePercent INT
+)
+RETURNS DECIMAL(10,2)
+AS
+BEGIN
+
+DECLARE @Discount DECIMAL(10,2);
+DECLARE @GST DECIMAL(10,2);
+DECLARE @Final DECIMAL(10,2);
+
+SET @Discount = (@Medicine + @Lab)*(@InsurancePercent/100.0);
+SET @GST = (@Medicine*0.05)+(@Lab*0.12);
+
+SET @Final = @Consultation + @Medicine + @Lab - @Discount + @GST;
+
+RETURN @Final;
+
+END
+GO
+
+
+
+
+/* =====================================================
+   SECTION D — ADVANCED QUERIES
+   ===================================================== */
+
+
+/* D1 Top 3 Doctors per Department */
+
+SELECT *
+FROM
+(
+SELECT
+dep.DepartmentName,
+doc.DoctorName,
+SUM(b.FinalAmount) Revenue,
+RANK() OVER(PARTITION BY dep.DepartmentID ORDER BY SUM(b.FinalAmount) DESC) RankNo
+FROM Billing b
+JOIN Appointments a ON b.AppointmentID=a.AppointmentID
+JOIN Doctors doc ON a.DoctorID=doc.DoctorID
+JOIN Departments dep ON doc.DepartmentID=dep.DepartmentID
+GROUP BY dep.DepartmentName,doc.DoctorName,dep.DepartmentID
+) t
+WHERE RankNo<=3;
+
+
+
+/* D2 Running Monthly Revenue */
+
+SELECT
+FORMAT(BillDate,'MMM yyyy') MonthYear,
+SUM(FinalAmount) MonthlyRevenue,
+SUM(SUM(FinalAmount)) OVER(ORDER BY YEAR(BillDate),MONTH(BillDate)) RunningTotal
+FROM Billing
+GROUP BY YEAR(BillDate),MONTH(BillDate),FORMAT(BillDate,'MMM yyyy')
+ORDER BY YEAR(BillDate),MONTH(BillDate);
+
+
+
+
+/* =====================================================
+   SECTION 5 — SECURITY
+   ===================================================== */
+
+CREATE ROLE db_receptionist;
+CREATE ROLE db_doctor;
+CREATE ROLE db_lab_tech;
+CREATE ROLE db_billing;
+CREATE ROLE db_admin;
+
+
+GRANT SELECT,INSERT ON Patients TO db_receptionist;
+GRANT SELECT,INSERT ON Appointments TO db_receptionist;
+
+GRANT SELECT ON Patients TO db_doctor;
+GRANT SELECT ON Appointments TO db_doctor;
+GRANT INSERT,UPDATE ON MedicalRecords TO db_doctor;
+GRANT INSERT,UPDATE ON Prescriptions TO db_doctor;
+
+GRANT SELECT ON LabOrders TO db_lab_tech;
+GRANT UPDATE ON LabOrders TO db_lab_tech;
+
+GRANT SELECT,INSERT,UPDATE ON Billing TO db_billing;
+
+GRANT CONTROL ON DATABASE::HospitalDB TO db_admin;
