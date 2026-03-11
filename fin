@@ -765,75 +765,142 @@ BEGIN
 END;
 GO
 
--- B2: Auto Generate Bill on Completion
 CREATE OR ALTER TRIGGER dbo.trg_kv_AutoGenerateBillOnCompletion
 ON kv_Appointments AFTER UPDATE
 AS
 BEGIN
     SET NOCOUNT ON;
+
+    -- Only fire when status changes TO 'Completed'
     IF NOT EXISTS (
-        SELECT 1 FROM inserted i JOIN deleted d ON d.appointment_id = i.appointment_id
+        SELECT 1 FROM inserted i
+        JOIN deleted d ON d.appointment_id = i.appointment_id
         WHERE i.status = 'Completed' AND d.status <> 'Completed'
     ) RETURN;
+
     BEGIN TRY
-        DECLARE @appt_id INT, @pat_id INT, @doc_id INT, @appt_date DATE;
-        DECLARE cur CURSOR LOCAL FAST_FORWARD FOR
+
+        -- Block if any bill already exists
+        IF EXISTS (
+            SELECT 1 FROM inserted i
+            JOIN deleted d ON d.appointment_id = i.appointment_id
+            JOIN kv_Bills b ON b.appointment_id = i.appointment_id
+            WHERE i.status = 'Completed' AND d.status <> 'Completed'
+        )
+        THROW 50200, 'Bill already exists for one or more appointments.', 1;
+
+        -- Calculate all values in one shot using CTE
+        ;WITH NewlyCompleted AS (
             SELECT i.appointment_id, i.patient_id, i.doctor_id, i.appt_date
-            FROM inserted i JOIN deleted d ON d.appointment_id = i.appointment_id
-            WHERE i.status = 'Completed' AND d.status <> 'Completed';
-        OPEN cur;
-        FETCH NEXT FROM cur INTO @appt_id, @pat_id, @doc_id, @appt_date;
-        WHILE @@FETCH_STATUS = 0
-        BEGIN
-            IF EXISTS (SELECT 1 FROM kv_Bills WHERE appointment_id = @appt_id)
-            BEGIN CLOSE cur; DEALLOCATE cur; THROW 50200, 'Bill already exists for this appointment.', 1; END;
-
-            DECLARE @fee DECIMAL(10,2), @med DECIMAL(10,2), @lab DECIMAL(10,2),
-                    @ins_pct DECIMAL(5,2), @disc DECIMAL(10,2),
-                    @net_med DECIMAL(10,2), @net_lab DECIMAL(10,2),
-                    @gst_med DECIMAL(10,2), @gst_lab DECIMAL(10,2),
-                    @final DECIMAL(12,2), @unpaid DECIMAL(12,2);
-
-            SELECT @fee = fees FROM kv_Doctors WHERE doctor_id = @doc_id;
-            SELECT @med = ISNULL(SUM(m.price*pm.quantity),0)
+            FROM inserted i
+            JOIN deleted d ON d.appointment_id = i.appointment_id
+            WHERE i.status = 'Completed' AND d.status <> 'Completed'
+        ),
+        MedCost AS (
+            SELECT pr.appointment_id, SUM(m.price * pm.quantity) AS med_cost
             FROM kv_Prescriptions pr
             JOIN kv_Prescription_Medicines pm ON pm.prescription_id = pr.prescription_id
             JOIN kv_Medicines m ON m.medicine_id = pm.medicine_id
-            WHERE pr.appointment_id = @appt_id;
-            SELECT @lab = ISNULL(SUM(lt.price),0)
-            FROM kv_Lab_Orders lo JOIN kv_Lab_Tests lt ON lt.lab_test_id = lo.lab_test_id
-            WHERE lo.appointment_id = @appt_id;
-            SELECT @ins_pct = ISNULL(ins.coverage_percent,0)
+            WHERE pr.appointment_id IN (SELECT appointment_id FROM NewlyCompleted)
+            GROUP BY pr.appointment_id
+        ),
+        LabCost AS (
+            SELECT lo.appointment_id, SUM(lt.price) AS lab_cost
+            FROM kv_Lab_Orders lo
+            JOIN kv_Lab_Tests lt ON lt.lab_test_id = lo.lab_test_id
+            WHERE lo.appointment_id IN (SELECT appointment_id FROM NewlyCompleted)
+            GROUP BY lo.appointment_id
+        ),
+        InsPct AS (
+            SELECT pi2.patient_id, ins.coverage_percent
             FROM kv_Patients_Insurance pi2
             JOIN kv_Insurance ins ON ins.insurance_id = pi2.insurance_id
-            WHERE pi2.patient_id = @pat_id
-              AND pi2.valid_from <= @appt_date AND pi2.valid_to >= @appt_date;
+            JOIN NewlyCompleted nc ON nc.patient_id = pi2.patient_id
+            WHERE pi2.valid_from <= nc.appt_date AND pi2.valid_to >= nc.appt_date
+        ),
+        Calculated AS (
+            SELECT
+                nc.appointment_id,
+                nc.patient_id,
+                d.fees                                      AS consult_charge,
+                ISNULL(mc.med_cost, 0)                      AS medicine_charge,
+                ISNULL(lc.lab_cost, 0)                      AS lab_charge,
+                ISNULL(ip.coverage_percent, 0)              AS ins_pct,
+                -- Discount on med+lab
+                ROUND(ISNULL(ip.coverage_percent,0)/100.0
+                    * (ISNULL(mc.med_cost,0) + ISNULL(lc.lab_cost,0)), 2) AS disc,
+                nc.appt_date
+            FROM NewlyCompleted nc
+            JOIN kv_Doctors d ON d.doctor_id = nc.doctor_id
+            LEFT JOIN MedCost mc ON mc.appointment_id = nc.appointment_id
+            LEFT JOIN LabCost lc ON lc.appointment_id = nc.appointment_id
+            LEFT JOIN InsPct  ip ON ip.patient_id     = nc.patient_id
+        ),
+        FinalBill AS (
+            SELECT
+                appointment_id,
+                patient_id,
+                consult_charge,
+                medicine_charge,
+                lab_charge,
+                disc                                        AS insurance_discount,
+                0                                           AS gst_on_consult,
+                -- Net med after proportional discount
+                ROUND(0.05 * (medicine_charge -
+                    CASE WHEN (medicine_charge + lab_charge) > 0
+                         THEN ROUND(disc * medicine_charge / (medicine_charge + lab_charge), 2)
+                         ELSE 0 END), 2)                    AS gst_on_medicine,
+                -- Net lab after proportional discount
+                ROUND(0.12 * (lab_charge -
+                    CASE WHEN (medicine_charge + lab_charge) > 0
+                         THEN ROUND(disc * lab_charge / (medicine_charge + lab_charge), 2)
+                         ELSE 0 END), 2)                    AS gst_on_lab,
+                -- Final payable
+                consult_charge
+                + (medicine_charge + lab_charge) - disc
+                + ROUND(0.05 * (medicine_charge -
+                    CASE WHEN (medicine_charge+lab_charge)>0
+                         THEN ROUND(disc*medicine_charge/(medicine_charge+lab_charge),2)
+                         ELSE 0 END), 2)
+                + ROUND(0.12 * (lab_charge -
+                    CASE WHEN (medicine_charge+lab_charge)>0
+                         THEN ROUND(disc*lab_charge/(medicine_charge+lab_charge),2)
+                         ELSE 0 END), 2)                    AS payable_amount,
+                appt_date
+            FROM Calculated
+        )
 
-            SET @ins_pct = ISNULL(@ins_pct,0);
-            SET @disc    = ROUND(@ins_pct/100.0*(@med+@lab),2);
-            SET @net_med = @med - CASE WHEN (@med+@lab)>0 THEN ROUND(@disc*@med/(@med+@lab),2) ELSE 0 END;
-            SET @net_lab = @lab - CASE WHEN (@med+@lab)>0 THEN ROUND(@disc*@lab/(@med+@lab),2) ELSE 0 END;
-            SET @gst_med = ROUND(0.05*@net_med,2);
-            SET @gst_lab = ROUND(0.12*@net_lab,2);
-            SET @final   = @fee+@net_med+@gst_med+@net_lab+@gst_lab;
+        -- Block if unpaid limit exceeded (check per patient)
+        IF EXISTS (
+            SELECT 1
+            FROM FinalBill fb
+            JOIN (
+                SELECT a2.patient_id, SUM(b2.payable_amount) AS existing_unpaid
+                FROM kv_Bills b2
+                JOIN kv_Appointments a2 ON a2.appointment_id = b2.appointment_id
+                WHERE b2.payment_status <> 'Paid'
+                GROUP BY a2.patient_id
+            ) unpaid ON unpaid.patient_id = fb.patient_id
+            WHERE (unpaid.existing_unpaid + fb.payable_amount) > 200000.00
+        )
+        THROW 50201, 'Patient unpaid bill limit of Rs. 2,00,000 would be exceeded.', 1;
 
-            SELECT @unpaid = ISNULL(SUM(b2.payable_amount),0)
-            FROM kv_Bills b2 JOIN kv_Appointments a2 ON a2.appointment_id = b2.appointment_id
-            WHERE a2.patient_id = @pat_id AND b2.payment_status <> 'Paid';
+        -- INSERT all bills in one statement
+        INSERT INTO kv_Bills (
+            appointment_id, patient_id,
+            consult_charge, medicine_charge, lab_charge,
+            insurance_discount, gst_on_consult, gst_on_medicine, gst_on_lab,
+            payable_amount, payment_status, billed_on
+        )
+        SELECT
+            appointment_id, patient_id,
+            consult_charge, medicine_charge, lab_charge,
+            insurance_discount, gst_on_consult, gst_on_medicine, gst_on_lab,
+            payable_amount, 'Unpaid', appt_date
+        FROM FinalBill;
 
-            IF (@unpaid+@final) > 200000.00
-            BEGIN CLOSE cur; DEALLOCATE cur; THROW 50201, 'Patient unpaid bill limit of Rs. 2,00,000 would be exceeded.', 1; END;
-
-            INSERT INTO kv_Bills (appointment_id,patient_id,consult_charge,medicine_charge,lab_charge,
-                insurance_discount,gst_on_consult,gst_on_medicine,gst_on_lab,payable_amount,payment_status,billed_on)
-            VALUES (@appt_id,@pat_id,@fee,@med,@lab,@disc,0,@gst_med,@gst_lab,@final,'Unpaid',@appt_date);
-
-            FETCH NEXT FROM cur INTO @appt_id, @pat_id, @doc_id, @appt_date;
-        END;
-        CLOSE cur; DEALLOCATE cur;
     END TRY
     BEGIN CATCH
-        IF CURSOR_STATUS('local','cur') >= 0 BEGIN CLOSE cur; DEALLOCATE cur; END;
         THROW;
     END CATCH;
 END;
