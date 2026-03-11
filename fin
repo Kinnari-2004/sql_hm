@@ -2,26 +2,46 @@
 --  MEDICARE+ HOSPITAL & CLINIC MANAGEMENT SYSTEM
 --  SQL Server Database Design Project — Advanced Level
 --  Engine : SQL Server 2019+
+--  Table Prefix: kv_
 -- ============================================================
 
 -- ============================================================
--- SECTION 01 — CREATE TABLES  (dependency order)
+-- SECTION 01 — DROP TABLES (clean start)
+-- ============================================================
+IF OBJECT_ID('dbo.kv_Bills','U')                   IS NOT NULL DROP TABLE dbo.kv_Bills;
+IF OBJECT_ID('dbo.kv_Lab_Orders','U')              IS NOT NULL DROP TABLE dbo.kv_Lab_Orders;
+IF OBJECT_ID('dbo.kv_Lab_Tests','U')               IS NOT NULL DROP TABLE dbo.kv_Lab_Tests;
+IF OBJECT_ID('dbo.kv_Prescription_Medicines','U')  IS NOT NULL DROP TABLE dbo.kv_Prescription_Medicines;
+IF OBJECT_ID('dbo.kv_Prescriptions','U')           IS NOT NULL DROP TABLE dbo.kv_Prescriptions;
+IF OBJECT_ID('dbo.kv_Medicines','U')               IS NOT NULL DROP TABLE dbo.kv_Medicines;
+IF OBJECT_ID('dbo.kv_Diagnosis','U')               IS NOT NULL DROP TABLE dbo.kv_Diagnosis;
+IF OBJECT_ID('dbo.kv_Appointments','U')            IS NOT NULL DROP TABLE dbo.kv_Appointments;
+IF OBJECT_ID('dbo.kv_Patients_Insurance','U')      IS NOT NULL DROP TABLE dbo.kv_Patients_Insurance;
+IF OBJECT_ID('dbo.kv_Insurance','U')               IS NOT NULL DROP TABLE dbo.kv_Insurance;
+IF OBJECT_ID('dbo.kv_Patients','U')                IS NOT NULL DROP TABLE dbo.kv_Patients;
+IF OBJECT_ID('dbo.kv_Time_Table','U')              IS NOT NULL DROP TABLE dbo.kv_Time_Table;
+IF OBJECT_ID('dbo.kv_Doctors','U')                 IS NOT NULL DROP TABLE dbo.kv_Doctors;
+IF OBJECT_ID('dbo.kv_Department','U')              IS NOT NULL DROP TABLE dbo.kv_Department;
+GO
+
+-- ============================================================
+-- SECTION 02 — CREATE TABLES
 -- ============================================================
 
 -- ------------------------------------------------------------
--- 1. Department
+-- 1. kv_Department
 -- ------------------------------------------------------------
-CREATE TABLE Department (
+CREATE TABLE kv_Department (
     dept_id     INT            IDENTITY(1,1) PRIMARY KEY,
     dept_name   NVARCHAR(100)  NOT NULL UNIQUE,
-    head_doctor INT            NULL          -- FK added after Doctors
+    head_doctor INT            NULL          -- FK added after kv_Doctors
 );
 GO
 
 -- ------------------------------------------------------------
--- 2. Doctors
+-- 2. kv_Doctors
 -- ------------------------------------------------------------
-CREATE TABLE Doctors (
+CREATE TABLE kv_Doctors (
     doctor_id      INT            IDENTITY(1,1) PRIMARY KEY,
     doctor_name    NVARCHAR(100)  NOT NULL,
     email          NVARCHAR(100)  NOT NULL UNIQUE,
@@ -30,37 +50,37 @@ CREATE TABLE Doctors (
     phone_number   NVARCHAR(15)   NULL,
     specialization NVARCHAR(100)  NOT NULL,
     fees           DECIMAL(10,2)  NOT NULL CHECK (fees >= 0),
-    dept_id        INT            NOT NULL REFERENCES Department(dept_id),
+    dept_id        INT            NOT NULL REFERENCES kv_Department(dept_id),
     is_active      BIT            NOT NULL DEFAULT 1
 );
 GO
 
 -- Deferred FK: department head doctor
-ALTER TABLE Department
+ALTER TABLE kv_Department
     ADD CONSTRAINT FK_Dept_HeadDoctor
-    FOREIGN KEY (head_doctor) REFERENCES Doctors(doctor_id);
+    FOREIGN KEY (head_doctor) REFERENCES kv_Doctors(doctor_id);
 GO
 
 -- ------------------------------------------------------------
--- 3. Time_Table  (doctor weekly schedule)
+-- 3. kv_Time_Table  (doctor weekly schedule)
 -- ------------------------------------------------------------
-CREATE TABLE Time_Table (
+CREATE TABLE kv_Time_Table (
     timetable_id INT           IDENTITY(1,1) PRIMARY KEY,
-    doctor_id    INT           NOT NULL REFERENCES Doctors(doctor_id),
+    doctor_id    INT           NOT NULL REFERENCES kv_Doctors(doctor_id),
     day_of_week  NVARCHAR(10)  NOT NULL
                      CHECK (day_of_week IN ('Monday','Tuesday','Wednesday',
                                             'Thursday','Friday','Saturday','Sunday')),
     start_time   TIME          NOT NULL,
     end_time     TIME          NOT NULL,
-    CONSTRAINT CHK_TT_Times    CHECK (end_time > start_time),
+    CONSTRAINT CHK_TT_Times     CHECK (end_time > start_time),
     CONSTRAINT UQ_TT_DoctorSlot UNIQUE (doctor_id, day_of_week, start_time)
 );
 GO
 
 -- ------------------------------------------------------------
--- 4. Patients
+-- 4. kv_Patients
 -- ------------------------------------------------------------
-CREATE TABLE Patients (
+CREATE TABLE kv_Patients (
     patient_id    INT            IDENTITY(1,1) PRIMARY KEY,
     patient_name  NVARCHAR(100)  NOT NULL,
     email         NVARCHAR(100)  NOT NULL UNIQUE,
@@ -73,9 +93,9 @@ CREATE TABLE Patients (
 GO
 
 -- ------------------------------------------------------------
--- 5. Insurance  (coverage catalogue)
+-- 5. kv_Insurance  (coverage catalogue)
 -- ------------------------------------------------------------
-CREATE TABLE Insurance (
+CREATE TABLE kv_Insurance (
     insurance_id     INT            IDENTITY(1,1) PRIMARY KEY,
     provider_name    NVARCHAR(100)  NOT NULL,
     coverage_percent DECIMAL(5,2)   NOT NULL CHECK (coverage_percent BETWEEN 0 AND 100),
@@ -85,11 +105,11 @@ CREATE TABLE Insurance (
 GO
 
 -- ------------------------------------------------------------
--- 6. Patients_Insurance  (patient ↔ insurance policy)
+-- 6. kv_Patients_Insurance  (patient <-> insurance policy)
 -- ------------------------------------------------------------
-CREATE TABLE Patients_Insurance (
-    insurance_id  INT          NOT NULL REFERENCES Insurance(insurance_id),
-    patient_id    INT          NOT NULL REFERENCES Patients(patient_id),
+CREATE TABLE kv_Patients_Insurance (
+    insurance_id  INT          NOT NULL REFERENCES kv_Insurance(insurance_id),
+    patient_id    INT          NOT NULL REFERENCES kv_Patients(patient_id),
     policy_number NVARCHAR(50) NOT NULL UNIQUE,
     valid_from    DATE         NOT NULL,
     valid_to      DATE         NOT NULL,
@@ -99,12 +119,12 @@ CREATE TABLE Patients_Insurance (
 GO
 
 -- ------------------------------------------------------------
--- 7. Appointments
+-- 7. kv_Appointments
 -- ------------------------------------------------------------
-CREATE TABLE Appointments (
+CREATE TABLE kv_Appointments (
     appointment_id INT           IDENTITY(1,1) PRIMARY KEY,
-    doctor_id      INT           NOT NULL REFERENCES Doctors(doctor_id),
-    patient_id     INT           NOT NULL REFERENCES Patients(patient_id),
+    doctor_id      INT           NOT NULL REFERENCES kv_Doctors(doctor_id),
+    patient_id     INT           NOT NULL REFERENCES kv_Patients(patient_id),
     appt_date      DATE          NOT NULL,
     time_slot      NVARCHAR(20)  NOT NULL,
     status         NVARCHAR(15)  NOT NULL DEFAULT 'Scheduled'
@@ -115,13 +135,13 @@ CREATE TABLE Appointments (
 GO
 
 -- ------------------------------------------------------------
--- 8. Diagnosis  (medical record — 1:1 with Appointments)
+-- 8. kv_Diagnosis  (medical record - 1:1 with kv_Appointments)
 -- ------------------------------------------------------------
-CREATE TABLE Diagnosis (
+CREATE TABLE kv_Diagnosis (
     diagnosis_id      INT            IDENTITY(1,1) PRIMARY KEY,
-    appointment_id    INT            NOT NULL UNIQUE REFERENCES Appointments(appointment_id),
-    doctor_id         INT            NOT NULL REFERENCES Doctors(doctor_id),
-    patient_id        INT            NOT NULL REFERENCES Patients(patient_id),
+    appointment_id    INT            NOT NULL UNIQUE REFERENCES kv_Appointments(appointment_id),
+    doctor_id         INT            NOT NULL REFERENCES kv_Doctors(doctor_id),
+    patient_id        INT            NOT NULL REFERENCES kv_Patients(patient_id),
     diagnosis_details NVARCHAR(1000) NOT NULL,
     treatment_plan    NVARCHAR(1000) NULL,
     requires_followup BIT            NOT NULL DEFAULT 0,
@@ -130,9 +150,9 @@ CREATE TABLE Diagnosis (
 GO
 
 -- ------------------------------------------------------------
--- 9. Medicines  (reference catalogue)
+-- 9. kv_Medicines  (reference catalogue)
 -- ------------------------------------------------------------
-CREATE TABLE Medicines (
+CREATE TABLE kv_Medicines (
     medicine_id   INT            IDENTITY(1,1) PRIMARY KEY,
     medicine_name NVARCHAR(100)  NOT NULL UNIQUE,
     category      NVARCHAR(50)   NULL,
@@ -142,23 +162,23 @@ CREATE TABLE Medicines (
 GO
 
 -- ------------------------------------------------------------
--- 10. Prescriptions  (header per appointment)
+-- 10. kv_Prescriptions  (header per appointment)
 -- ------------------------------------------------------------
-CREATE TABLE Prescriptions (
+CREATE TABLE kv_Prescriptions (
     prescription_id INT  IDENTITY(1,1) PRIMARY KEY,
-    appointment_id  INT  NOT NULL UNIQUE REFERENCES Appointments(appointment_id),
-    patient_id      INT  NOT NULL REFERENCES Patients(patient_id),
-    doctor_id       INT  NOT NULL REFERENCES Doctors(doctor_id),
+    appointment_id  INT  NOT NULL UNIQUE REFERENCES kv_Appointments(appointment_id),
+    patient_id      INT  NOT NULL REFERENCES kv_Patients(patient_id),
+    doctor_id       INT  NOT NULL REFERENCES kv_Doctors(doctor_id),
     pres_date       DATE NOT NULL DEFAULT CAST(GETDATE() AS DATE)
 );
 GO
 
 -- ------------------------------------------------------------
--- 11. Prescription_Medicines  (line items per prescription)
+-- 11. kv_Prescription_Medicines  (line items per prescription)
 -- ------------------------------------------------------------
-CREATE TABLE Prescription_Medicines (
-    prescription_id INT          NOT NULL REFERENCES Prescriptions(prescription_id),
-    medicine_id     INT          NOT NULL REFERENCES Medicines(medicine_id),
+CREATE TABLE kv_Prescription_Medicines (
+    prescription_id INT          NOT NULL REFERENCES kv_Prescriptions(prescription_id),
+    medicine_id     INT          NOT NULL REFERENCES kv_Medicines(medicine_id),
     dosage          NVARCHAR(50) NOT NULL,
     duration_days   INT          NOT NULL CHECK (duration_days > 0),
     quantity        INT          NOT NULL CHECK (quantity > 0),
@@ -167,9 +187,9 @@ CREATE TABLE Prescription_Medicines (
 GO
 
 -- ------------------------------------------------------------
--- 12. Lab_Tests  (reference catalogue)
+-- 12. kv_Lab_Tests  (reference catalogue)
 -- ------------------------------------------------------------
-CREATE TABLE Lab_Tests (
+CREATE TABLE kv_Lab_Tests (
     lab_test_id INT            IDENTITY(1,1) PRIMARY KEY,
     test_name   NVARCHAR(100)  NOT NULL UNIQUE,
     description NVARCHAR(500)  NULL,
@@ -178,12 +198,12 @@ CREATE TABLE Lab_Tests (
 GO
 
 -- ------------------------------------------------------------
--- 13. Lab_Orders  (tests ordered per appointment)
+-- 13. kv_Lab_Orders  (tests ordered per appointment)
 -- ------------------------------------------------------------
-CREATE TABLE Lab_Orders (
+CREATE TABLE kv_Lab_Orders (
     lab_order_id   INT            IDENTITY(1,1) PRIMARY KEY,
-    appointment_id INT            NOT NULL REFERENCES Appointments(appointment_id),
-    lab_test_id    INT            NOT NULL REFERENCES Lab_Tests(lab_test_id),
+    appointment_id INT            NOT NULL REFERENCES kv_Appointments(appointment_id),
+    lab_test_id    INT            NOT NULL REFERENCES kv_Lab_Tests(lab_test_id),
     ordered_on     DATETIME       NOT NULL DEFAULT GETDATE(),
     result_value   NVARCHAR(200)  NULL,
     result_date    DATE           NULL,
@@ -193,12 +213,12 @@ CREATE TABLE Lab_Orders (
 GO
 
 -- ------------------------------------------------------------
--- 14. Bills  (1:1 with Appointments — only for Completed)
+-- 14. kv_Bills  (1:1 with kv_Appointments - only for Completed)
 -- ------------------------------------------------------------
-CREATE TABLE Bills (
+CREATE TABLE kv_Bills (
     bill_id            INT            IDENTITY(1,1) PRIMARY KEY,
-    appointment_id     INT            NOT NULL UNIQUE REFERENCES Appointments(appointment_id),
-    patient_id         INT            NOT NULL REFERENCES Patients(patient_id),
+    appointment_id     INT            NOT NULL UNIQUE REFERENCES kv_Appointments(appointment_id),
+    patient_id         INT            NOT NULL REFERENCES kv_Patients(patient_id),
     consult_charge     DECIMAL(10,2)  NOT NULL DEFAULT 0,
     medicine_charge    DECIMAL(10,2)  NOT NULL DEFAULT 0,
     lab_charge         DECIMAL(10,2)  NOT NULL DEFAULT 0,
@@ -214,44 +234,40 @@ CREATE TABLE Bills (
 GO
 
 -- ============================================================
--- SECTION 02 — SAMPLE DATA
+-- SECTION 03 — SAMPLE DATA
 -- ============================================================
 
--- Department
-INSERT INTO Department (dept_name) VALUES
-    ('Cardiology'),
-    ('Orthopaedics'),
-    ('Pathology'),
-    ('Neurology'),
-    ('General Medicine');
+-- kv_Department
+INSERT INTO kv_Department (dept_name) VALUES
+    ('Cardiology'),('Orthopaedics'),('Pathology'),
+    ('Neurology'),('General Medicine');
 GO
 
--- Doctors
-INSERT INTO Doctors (doctor_name, email, date_of_birth, address, phone_number, specialization, fees, dept_id, is_active)
-VALUES
-    ('Kinnari Vaghela',   'kinnari@medicare.com',  '1990-06-20', 'Delhi',     '9845678951', 'Cardiologist',        2000.00, 1, 1),
-    ('Arjun Mehta',   'arjun@medicare.com',  '1975-04-10', 'Delhi',     '9876543210', 'Cardiologist',        1200.00, 1, 1),
-    ('Priya Sharma',  'priya@medicare.com',  '1980-08-22', 'Mumbai',    '9876543211', 'Cardiac Surgeon',      800.00, 1, 1),
-    ('Rajan Verma',   'rajan@medicare.com',  '1972-11-05', 'Delhi',     '9876543212', 'Orthopaedic Surgeon',  900.00, 2, 1),
-    ('Sunita Rao',    'sunita@medicare.com', '1983-03-18', 'Chennai',   '9876543213', 'Joint Specialist',     750.00, 2, 1),
-    ('Kavita Nair',   'kavita@medicare.com', '1978-07-30', 'Kochi',     '9876543214', 'Pathologist',          600.00, 3, 1),
-    ('Deepak Joshi',  'deepak@medicare.com', '1970-01-14', 'Pune',      '9876543215', 'Neurologist',         1100.00, 4, 1),
-    ('Meena Pillai',  'meena@medicare.com',  '1982-09-25', 'Bangalore', '9876543216', 'Neurosurgeon',         950.00, 4, 1),
-    ('Rahul Gupta',   'rahul@medicare.com',  '1985-06-12', 'Hyderabad', '9876543217', 'General Physician',    500.00, 5, 1),
-    ('Ananya Singh',  'ananya@medicare.com', '1990-02-28', 'Lucknow',   '9876543218', 'General Physician',    450.00, 5, 1),
-    ('Vikram Das',    'vikram@medicare.com', '1968-12-01', 'Kolkata',   '9876543219', 'Cardiologist',         700.00, 1, 0);
+-- kv_Doctors
+INSERT INTO kv_Doctors (doctor_name, email, date_of_birth, address, phone_number, specialization, fees, dept_id, is_active) VALUES
+    ('Kinnari Vaghela', 'kinnari@medicare.com', '1990-06-20', 'Delhi',     '9845678951', 'Cardiologist',         2000.00, 1, 1),
+    ('Arjun Mehta',     'arjun@medicare.com',   '1975-04-10', 'Delhi',     '9876543210', 'Cardiologist',         1200.00, 1, 1),
+    ('Priya Sharma',    'priya@medicare.com',   '1980-08-22', 'Mumbai',    '9876543211', 'Cardiac Surgeon',       800.00, 1, 1),
+    ('Rajan Verma',     'rajan@medicare.com',   '1972-11-05', 'Delhi',     '9876543212', 'Orthopaedic Surgeon',   900.00, 2, 1),
+    ('Sunita Rao',      'sunita@medicare.com',  '1983-03-18', 'Chennai',   '9876543213', 'Joint Specialist',      750.00, 2, 1),
+    ('Kavita Nair',     'kavita@medicare.com',  '1978-07-30', 'Kochi',     '9876543214', 'Pathologist',           600.00, 3, 1),
+    ('Deepak Joshi',    'deepak@medicare.com',  '1970-01-14', 'Pune',      '9876543215', 'Neurologist',          1100.00, 4, 1),
+    ('Meena Pillai',    'meena@medicare.com',   '1982-09-25', 'Bangalore', '9876543216', 'Neurosurgeon',          950.00, 4, 1),
+    ('Rahul Gupta',     'rahul@medicare.com',   '1985-06-12', 'Hyderabad', '9876543217', 'General Physician',     500.00, 5, 1),
+    ('Ananya Singh',    'ananya@medicare.com',  '1990-02-28', 'Lucknow',   '9876543218', 'General Physician',     450.00, 5, 1),
+    ('Vikram Das',      'vikram@medicare.com',  '1968-12-01', 'Kolkata',   '9876543219', 'Cardiologist',          700.00, 1, 0);
 GO
 
 -- Assign head doctors
-UPDATE Department SET head_doctor = 1 WHERE dept_id = 1;
-UPDATE Department SET head_doctor = 3 WHERE dept_id = 2;
-UPDATE Department SET head_doctor = 5 WHERE dept_id = 3;
-UPDATE Department SET head_doctor = 6 WHERE dept_id = 4;
-UPDATE Department SET head_doctor = 8 WHERE dept_id = 5;
+UPDATE kv_Department SET head_doctor = 1 WHERE dept_id = 1;
+UPDATE kv_Department SET head_doctor = 4 WHERE dept_id = 2;
+UPDATE kv_Department SET head_doctor = 6 WHERE dept_id = 3;
+UPDATE kv_Department SET head_doctor = 7 WHERE dept_id = 4;
+UPDATE kv_Department SET head_doctor = 9 WHERE dept_id = 5;
 GO
 
--- Time_Table
-INSERT INTO Time_Table (doctor_id, day_of_week, start_time, end_time) VALUES
+-- kv_Time_Table
+INSERT INTO kv_Time_Table (doctor_id, day_of_week, start_time, end_time) VALUES
     (1,'Monday','09:00','10:00'),(1,'Monday','10:00','11:00'),
     (1,'Wednesday','09:00','10:00'),(1,'Friday','14:00','15:00'),
     (2,'Tuesday','10:00','11:00'),(2,'Thursday','09:00','10:00'),
@@ -264,9 +280,8 @@ INSERT INTO Time_Table (doctor_id, day_of_week, start_time, end_time) VALUES
     (9,'Tuesday','09:00','10:00'),(9,'Thursday','09:00','10:00');
 GO
 
--- Patients
-INSERT INTO Patients (patient_name, email, phone, date_of_birth, gender, address)
-VALUES
+-- kv_Patients
+INSERT INTO kv_Patients (patient_name, email, phone, date_of_birth, gender, address) VALUES
     ('Aditya Kumar',   'aditya@gmail.com',  '8800112233', '1985-03-15', 'Male',   'Delhi'),
     ('Bhavna Patel',   'bhavna@gmail.com',  '8800112234', '1990-07-22', 'Female', 'Mumbai'),
     ('Chirag Shah',    'chirag@gmail.com',  '8800112235', '1978-11-05', 'Male',   'Ahmedabad'),
@@ -279,8 +294,8 @@ VALUES
     ('Jyoti Malhotra', 'jyoti@gmail.com',   '8800112242', '1960-08-14', 'Female', 'Jaipur');
 GO
 
--- Insurance plans
-INSERT INTO Insurance (provider_name, coverage_percent, yearly_maximum, coverage_details) VALUES
+-- kv_Insurance
+INSERT INTO kv_Insurance (provider_name, coverage_percent, yearly_maximum, coverage_details) VALUES
     ('Star Health',   30.00, 50000.00, 'Covers medicine and lab costs up to 30%'),
     ('HDFC Ergo',     50.00, 75000.00, 'Covers medicine and lab costs up to 50%'),
     ('Bajaj Allianz', 20.00, 30000.00, 'Covers medicine and lab costs up to 20%'),
@@ -288,8 +303,8 @@ INSERT INTO Insurance (provider_name, coverage_percent, yearly_maximum, coverage
     ('ICICI Lombard', 35.00, 45000.00, 'Covers medicine and lab costs up to 35%');
 GO
 
--- Link patients to insurance policies
-INSERT INTO Patients_Insurance (insurance_id, patient_id, policy_number, valid_from, valid_to) VALUES
+-- kv_Patients_Insurance
+INSERT INTO kv_Patients_Insurance (insurance_id, patient_id, policy_number, valid_from, valid_to) VALUES
     (1, 1, 'SH-2024-001', '2024-01-01', '2026-12-31'),
     (2, 2, 'HE-2024-002', '2024-01-01', '2026-12-31'),
     (3, 3, 'BA-2024-003', '2024-01-01', '2026-12-31'),
@@ -297,41 +312,41 @@ INSERT INTO Patients_Insurance (insurance_id, patient_id, policy_number, valid_f
     (5, 7, 'IL-2024-007', '2024-01-01', '2026-12-31');
 GO
 
--- Medicines
-INSERT INTO Medicines (medicine_name, category, price, exp_date) VALUES
-    ('Aspirin 75mg',        'Antiplatelet',     5.00, '2026-12-31'),
-    ('Metformin 500mg',     'Antidiabetic',     8.00, '2026-06-30'),
-    ('Amlodipine 5mg',      'Antihypertensive',12.00, '2027-03-31'),
-    ('Paracetamol 500mg',   'Analgesic',        3.00, '2026-09-30'),
-    ('Omeprazole 20mg',     'Antacid',         10.00, '2026-12-31'),
-    ('Clopidogrel 75mg',    'Antiplatelet',    25.00, '2026-08-31'),
-    ('Atorvastatin 10mg',   'Statin',          18.00, '2027-01-31'),
-    ('Diclofenac 50mg',     'NSAID',            7.00, '2026-11-30'),
-    ('Amoxicillin 500mg',   'Antibiotic',      15.00, '2025-12-31'),
-    ('Pantoprazole 40mg',   'Antacid',         12.00, '2026-10-31'),
-    ('Vitamin D3 60000IU',  'Supplement',      45.00, '2027-06-30'),
-    ('Gabapentin 300mg',    'Anticonvulsant',  22.00, '2026-07-31'),
-    ('Levothyroxine 50mcg', 'Thyroid',         20.00, '2026-05-31'),
-    ('Cetirizine 10mg',     'Antihistamine',    5.00, '2027-02-28'),
-    ('Ibuprofen 400mg',     'NSAID',            6.00, '2026-04-30');
+-- kv_Medicines
+INSERT INTO kv_Medicines (medicine_name, category, price, exp_date) VALUES
+    ('Aspirin 75mg',        'Antiplatelet',      5.00, '2026-12-31'),
+    ('Metformin 500mg',     'Antidiabetic',      8.00, '2026-06-30'),
+    ('Amlodipine 5mg',      'Antihypertensive', 12.00, '2027-03-31'),
+    ('Paracetamol 500mg',   'Analgesic',         3.00, '2026-09-30'),
+    ('Omeprazole 20mg',     'Antacid',          10.00, '2026-12-31'),
+    ('Clopidogrel 75mg',    'Antiplatelet',     25.00, '2026-08-31'),
+    ('Atorvastatin 10mg',   'Statin',           18.00, '2027-01-31'),
+    ('Diclofenac 50mg',     'NSAID',             7.00, '2026-11-30'),
+    ('Amoxicillin 500mg',   'Antibiotic',       15.00, '2025-12-31'),
+    ('Pantoprazole 40mg',   'Antacid',          12.00, '2026-10-31'),
+    ('Vitamin D3 60000IU',  'Supplement',       45.00, '2027-06-30'),
+    ('Gabapentin 300mg',    'Anticonvulsant',   22.00, '2026-07-31'),
+    ('Levothyroxine 50mcg', 'Thyroid',          20.00, '2026-05-31'),
+    ('Cetirizine 10mg',     'Antihistamine',     5.00, '2027-02-28'),
+    ('Ibuprofen 400mg',     'NSAID',             6.00, '2026-04-30');
 GO
 
--- Lab_Tests
-INSERT INTO Lab_Tests (test_name, description, price) VALUES
-    ('Complete Blood Count', 'Full blood panel',     350.00),
-    ('Lipid Profile',        'Cholesterol panel',    500.00),
-    ('Blood Glucose Fasting','FBS test',             150.00),
-    ('ECG',                  'Electrocardiogram',    300.00),
-    ('X-Ray Chest',          'Chest radiograph',     400.00),
-    ('MRI Brain',            'MRI of brain',        3500.00),
-    ('CT Scan Chest',        'CT chest',            2500.00),
-    ('Thyroid Function Test','T3 T4 TSH',            600.00),
-    ('Urine Routine',        'Routine urine exam',   120.00),
-    ('Liver Function Test',  'LFT panel',            450.00);
+-- kv_Lab_Tests
+INSERT INTO kv_Lab_Tests (test_name, description, price) VALUES
+    ('Complete Blood Count', 'Full blood panel',      350.00),
+    ('Lipid Profile',        'Cholesterol panel',     500.00),
+    ('Blood Glucose Fasting','FBS test',              150.00),
+    ('ECG',                  'Electrocardiogram',     300.00),
+    ('X-Ray Chest',          'Chest radiograph',      400.00),
+    ('MRI Brain',            'MRI of brain',         3500.00),
+    ('CT Scan Chest',        'CT chest',             2500.00),
+    ('Thyroid Function Test','T3 T4 TSH',             600.00),
+    ('Urine Routine',        'Routine urine exam',    120.00),
+    ('Liver Function Test',  'LFT panel',             450.00);
 GO
 
--- Appointments  (Jan–Jun 2024 for meaningful reports + Scheduled + Cancelled)
-INSERT INTO Appointments (doctor_id, patient_id, appt_date, time_slot, status) VALUES
+-- kv_Appointments
+INSERT INTO kv_Appointments (doctor_id, patient_id, appt_date, time_slot, status) VALUES
     (1, 1, '2024-01-10', '09:00-10:00', 'Completed'),
     (1, 2, '2024-01-10', '10:00-11:00', 'Completed'),
     (3, 3, '2024-01-15', '11:00-12:00', 'Completed'),
@@ -368,578 +383,375 @@ INSERT INTO Appointments (doctor_id, patient_id, appt_date, time_slot, status) V
     (1, 4, '2024-07-10', '09:00-10:00', 'Cancelled');
 GO
 
--- Diagnosis (medical records for all 30 Completed appointments)
-INSERT INTO Diagnosis (appointment_id, doctor_id, patient_id, diagnosis_details, treatment_plan, requires_followup, diagnosis_date) VALUES
-    (1,  1, 1, 'Hypertension Stage 1',    'Amlodipine 5mg, lifestyle changes',  0, '2024-01-10'),
-    (2,  1, 2, 'Coronary Artery Disease', 'Aspirin, statin, follow-up ECG',     0, '2024-01-10'),
-    (3,  3, 3, 'Knee Osteoarthritis',     'Physiotherapy, Diclofenac',          0, '2024-01-15'),
-    (4,  8, 4, 'Viral Fever',             'Rest, Paracetamol, fluids',          0, '2024-01-20'),
-    (5,  6, 5, 'Migraine',                'Gabapentin, avoid triggers',         0, '2024-01-22'),
-    (6,  1, 6, 'Arrhythmia',              'ECG monitoring, Clopidogrel',        0, '2024-02-05'),
-    (7,  3, 7, 'Lumbar Disc Herniation',  'Rest, physiotherapy',                0, '2024-02-12'),
-    (8,  6, 8, 'Tension Headache',        'Analgesics, stress management',      0, '2024-02-14'),
-    (9,  8, 9, 'URTI',                    'Amoxicillin, rest',                  0, '2024-02-20'),
-    (10, 2,10, 'Atrial Fibrillation',     'Rate control, anticoagulation',      0, '2024-02-25'),
-    (11, 6, 1, 'Migraine with Aura',      'Preventive therapy',                 0, '2024-03-05'),
-    (12, 3, 2, 'Rotator Cuff Injury',     'Physiotherapy, NSAIDs',              0, '2024-03-10'),
-    (13, 1, 3, 'Essential Hypertension',  'Amlodipine, salt restriction',       0, '2024-03-15'),
-    (14, 8, 5, 'Diabetes Type 2',         'Metformin, diet control',            0, '2024-03-18'),
-    (15, 4, 7, 'Ligament Tear',           'Immobilisation, surgery consult',    0, '2024-03-22'),
-    (16, 7, 4, 'Epilepsy',                'Gabapentin, EEG scheduled',          0, '2024-04-02'),
-    (17, 1, 6, 'Hypertension Stage 2',    'Combination antihypertensives',      0, '2024-04-10'),
-    (18, 3, 8, 'Spondylitis',             'NSAIDs, physiotherapy',              0, '2024-04-15'),
-    (19, 6, 9, 'Chronic Migraine',        'Preventive medication',              0, '2024-04-20'),
-    (20, 8,10, 'Hypertensive Crisis',     'IV antihypertensives',               0, '2024-04-25'),
-    (21, 1, 1, 'Stable Angina',           'Nitrates, beta-blockers',            0, '2024-05-03'),
-    (22, 6, 2, 'Tension Headache',        'Analgesics',                         0, '2024-05-10'),
-    (23, 3, 3, 'Ankle Fracture',          'Immobilisation, calcium supplements',0, '2024-05-15'),
-    (24, 1, 5, 'Hypertension follow-up',  'Continue medications',               0, '2024-05-20'),
-    (25, 8, 7, 'Diabetes follow-up',      'Continue Metformin, HbA1c recheck', 0, '2024-05-25'),
-    (26, 6, 4, 'Vertigo',                 'Vestibular exercises, Betahistine',  0, '2024-06-03'),
-    (27, 3, 6, 'Meniscus Tear',           'Surgical referral',                  0, '2024-06-10'),
-    (28, 1, 8, 'Hypertension Controlled', 'Continue medications',               0, '2024-06-15'),
-    (29, 8, 9, 'GERD',                    'Omeprazole, diet modifications',     0, '2024-06-20'),
-    (30, 4,10, 'Knee Ligament Sprain',    'RICE therapy, NSAIDs',               0, '2024-06-25');
+-- kv_Diagnosis
+INSERT INTO kv_Diagnosis (appointment_id, doctor_id, patient_id, diagnosis_details, treatment_plan, requires_followup, diagnosis_date) VALUES
+    (1,  1, 1, 'Hypertension Stage 1',    'Amlodipine 5mg, lifestyle changes',   0, '2024-01-10'),
+    (2,  1, 2, 'Coronary Artery Disease', 'Aspirin, statin, follow-up ECG',      0, '2024-01-10'),
+    (3,  3, 3, 'Knee Osteoarthritis',     'Physiotherapy, Diclofenac',           0, '2024-01-15'),
+    (4,  8, 4, 'Viral Fever',             'Rest, Paracetamol, fluids',           0, '2024-01-20'),
+    (5,  6, 5, 'Migraine',                'Gabapentin, avoid triggers',          0, '2024-01-22'),
+    (6,  1, 6, 'Arrhythmia',              'ECG monitoring, Clopidogrel',         0, '2024-02-05'),
+    (7,  3, 7, 'Lumbar Disc Herniation',  'Rest, physiotherapy',                 0, '2024-02-12'),
+    (8,  6, 8, 'Tension Headache',        'Analgesics, stress management',       0, '2024-02-14'),
+    (9,  8, 9, 'URTI',                    'Amoxicillin, rest',                   0, '2024-02-20'),
+    (10, 2,10, 'Atrial Fibrillation',     'Rate control, anticoagulation',       0, '2024-02-25'),
+    (11, 6, 1, 'Migraine with Aura',      'Preventive therapy',                  0, '2024-03-05'),
+    (12, 3, 2, 'Rotator Cuff Injury',     'Physiotherapy, NSAIDs',               0, '2024-03-10'),
+    (13, 1, 3, 'Essential Hypertension',  'Amlodipine, salt restriction',        0, '2024-03-15'),
+    (14, 8, 5, 'Diabetes Type 2',         'Metformin, diet control',             0, '2024-03-18'),
+    (15, 4, 7, 'Ligament Tear',           'Immobilisation, surgery consult',     0, '2024-03-22'),
+    (16, 7, 4, 'Epilepsy',                'Gabapentin, EEG scheduled',           0, '2024-04-02'),
+    (17, 1, 6, 'Hypertension Stage 2',    'Combination antihypertensives',       0, '2024-04-10'),
+    (18, 3, 8, 'Spondylitis',             'NSAIDs, physiotherapy',               0, '2024-04-15'),
+    (19, 6, 9, 'Chronic Migraine',        'Preventive medication',               0, '2024-04-20'),
+    (20, 8,10, 'Hypertensive Crisis',     'IV antihypertensives',                0, '2024-04-25'),
+    (21, 1, 1, 'Stable Angina',           'Nitrates, beta-blockers',             0, '2024-05-03'),
+    (22, 6, 2, 'Tension Headache',        'Analgesics',                          0, '2024-05-10'),
+    (23, 3, 3, 'Ankle Fracture',          'Immobilisation, calcium supplements', 0, '2024-05-15'),
+    (24, 1, 5, 'Hypertension follow-up',  'Continue medications',                0, '2024-05-20'),
+    (25, 8, 7, 'Diabetes follow-up',      'Continue Metformin, HbA1c recheck',  0, '2024-05-25'),
+    (26, 6, 4, 'Vertigo',                 'Vestibular exercises, Betahistine',   0, '2024-06-03'),
+    (27, 3, 6, 'Meniscus Tear',           'Surgical referral',                   0, '2024-06-10'),
+    (28, 1, 8, 'Hypertension Controlled', 'Continue medications',                0, '2024-06-15'),
+    (29, 8, 9, 'GERD',                    'Omeprazole, diet modifications',      0, '2024-06-20'),
+    (30, 4,10, 'Knee Ligament Sprain',    'RICE therapy, NSAIDs',                0, '2024-06-25');
 GO
 
--- Prescriptions (header per appointment)
-INSERT INTO Prescriptions (appointment_id, patient_id, doctor_id, pres_date) VALUES
-    (1,  1, 1, '2024-01-10'),
-    (2,  2, 1, '2024-01-10'),
-    (3,  3, 3, '2024-01-15'),
-    (4,  4, 8, '2024-01-20'),
-    (5,  5, 6, '2024-01-22'),
-    (6,  6, 1, '2024-02-05'),
-    (7,  7, 3, '2024-02-12'),
-    (8,  8, 6, '2024-02-14'),
-    (9,  9, 8, '2024-02-20'),
-    (10,10, 2, '2024-02-25'),
-    (11, 1, 6, '2024-03-05'),
-    (12, 2, 3, '2024-03-10'),
-    (13, 3, 1, '2024-03-15'),
-    (14, 5, 8, '2024-03-18'),
-    (16, 4, 7, '2024-04-02'),
-    (17, 6, 1, '2024-04-10'),
-    (18, 8, 3, '2024-04-15'),
-    (19, 9, 6, '2024-04-20'),
-    (20,10, 8, '2024-04-25'),
-    (21, 1, 1, '2024-05-03'),
-    (22, 2, 6, '2024-05-10'),
-    (24, 5, 1, '2024-05-20'),
-    (25, 7, 8, '2024-05-25'),
-    (26, 4, 6, '2024-06-03'),
-    (28, 8, 1, '2024-06-15'),
-    (29, 9, 8, '2024-06-20'),
+-- kv_Prescriptions
+INSERT INTO kv_Prescriptions (appointment_id, patient_id, doctor_id, pres_date) VALUES
+    (1,  1, 1, '2024-01-10'),(2,  2, 1, '2024-01-10'),
+    (3,  3, 3, '2024-01-15'),(4,  4, 8, '2024-01-20'),
+    (5,  5, 6, '2024-01-22'),(6,  6, 1, '2024-02-05'),
+    (7,  7, 3, '2024-02-12'),(8,  8, 6, '2024-02-14'),
+    (9,  9, 8, '2024-02-20'),(10,10, 2, '2024-02-25'),
+    (11, 1, 6, '2024-03-05'),(12, 2, 3, '2024-03-10'),
+    (13, 3, 1, '2024-03-15'),(14, 5, 8, '2024-03-18'),
+    (16, 4, 7, '2024-04-02'),(17, 6, 1, '2024-04-10'),
+    (18, 8, 3, '2024-04-15'),(19, 9, 6, '2024-04-20'),
+    (20,10, 8, '2024-04-25'),(21, 1, 1, '2024-05-03'),
+    (22, 2, 6, '2024-05-10'),(24, 5, 1, '2024-05-20'),
+    (25, 7, 8, '2024-05-25'),(26, 4, 6, '2024-06-03'),
+    (28, 8, 1, '2024-06-15'),(29, 9, 8, '2024-06-20'),
     (30,10, 4, '2024-06-25');
 GO
 
--- Prescription_Medicines (line items)
-INSERT INTO Prescription_Medicines (prescription_id, medicine_id, dosage, duration_days, quantity) VALUES
-    (1,  3, '5mg once daily',      30,  30),
-    (1,  7, '10mg once daily',     30,  30),
-    (2,  1, '75mg once daily',     60,  60),
-    (2,  6, '75mg once daily',     60,  60),
-    (3,  8, '50mg twice daily',    14,  28),
-    (4,  4, '500mg thrice daily',   5,  15),
-    (5, 12, '300mg twice daily',   30,  60),
-    (6,  6, '75mg once daily',     90,  90),
-    (7,  8, '50mg twice daily',    14,  28),
-    (7, 15, '400mg twice daily',   10,  20),
-    (8,  4, '500mg as needed',      7,  14),
-    (9,  9, '500mg thrice daily',   7,  21),
-    (10, 1, '75mg once daily',     90,  90),
-    (11,12, '300mg twice daily',   30,  60),
-    (12, 8, '50mg twice daily',    14,  28),
-    (13, 3, '5mg once daily',      30,  30),
-    (14, 2, '500mg twice daily',   90, 180),
-    (14,11, '60000IU weekly',      12,  12),
-    (15,12, '300mg twice daily',   60, 120),
-    (16, 3, '10mg once daily',     30,  30),
-    (17, 8, '50mg twice daily',    14,  28),
-    (18,12, '300mg once daily',    30,  30),
-    (19, 3, '10mg once daily',     30,  30),
-    (20, 1, '75mg once daily',     90,  90),
-    (21, 4, '500mg as needed',      5,  10),
-    (22, 3, '5mg once daily',      30,  30),
-    (23, 2, '500mg twice daily',   90, 180),
-    (24, 5, '20mg once daily',     14,  14),
-    (25, 3, '5mg once daily',      30,  30),
-    (26, 5, '20mg twice daily',    30,  60),
+-- kv_Prescription_Medicines
+INSERT INTO kv_Prescription_Medicines (prescription_id, medicine_id, dosage, duration_days, quantity) VALUES
+    (1,  3, '5mg once daily',      30,  30),(1,  7, '10mg once daily',    30,  30),
+    (2,  1, '75mg once daily',     60,  60),(2,  6, '75mg once daily',    60,  60),
+    (3,  8, '50mg twice daily',    14,  28),(4,  4, '500mg thrice daily',  5,  15),
+    (5, 12, '300mg twice daily',   30,  60),(6,  6, '75mg once daily',    90,  90),
+    (7,  8, '50mg twice daily',    14,  28),(7, 15, '400mg twice daily',  10,  20),
+    (8,  4, '500mg as needed',      7,  14),(9,  9, '500mg thrice daily',  7,  21),
+    (10, 1, '75mg once daily',     90,  90),(11,12, '300mg twice daily',  30,  60),
+    (12, 8, '50mg twice daily',    14,  28),(13, 3, '5mg once daily',     30,  30),
+    (14, 2, '500mg twice daily',   90, 180),(14,11, '60000IU weekly',     12,  12),
+    (15,12, '300mg twice daily',   60, 120),(16, 3, '10mg once daily',    30,  30),
+    (17, 8, '50mg twice daily',    14,  28),(18,12, '300mg once daily',   30,  30),
+    (19, 3, '10mg once daily',     30,  30),(20, 1, '75mg once daily',    90,  90),
+    (21, 4, '500mg as needed',      5,  10),(22, 3, '5mg once daily',     30,  30),
+    (23, 2, '500mg twice daily',   90, 180),(24, 5, '20mg once daily',    14,  14),
+    (25, 3, '5mg once daily',      30,  30),(26, 5, '20mg twice daily',   30,  60),
     (27, 8, '50mg twice daily',    10,  20);
 GO
 
--- Lab_Orders
-INSERT INTO Lab_Orders (appointment_id, lab_test_id, result_value, result_date, is_abnormal) VALUES
-    (1,  4, 'Normal Sinus Rhythm',   '2024-01-11', 0),
-    (1,  2, 'LDL 180 mg/dL HIGH',   '2024-01-11', 1),
-    (2,  4, 'AF detected',           '2024-01-11', 1),
-    (3,  5, 'Joint space narrowing', '2024-01-16', 1),
-    (4,  1, 'WBC 11000 high',        '2024-01-21', 1),
-    (5,  6, 'No abnormality',        '2024-01-23', 0),
-    (6,  4, 'Irregular rhythm',      '2024-02-06', 1),
-    (7,  5, 'L4-L5 disc herniation', '2024-02-13', 1),
-    (9,  1, 'WBC 9000 Normal',       '2024-02-21', 0),
-    (10, 4, 'AF noted',              '2024-02-26', 1),
-    (11, 6, 'No lesion',             '2024-03-06', 0),
-    (13, 2, 'LDL 160 mg/dL HIGH',   '2024-03-16', 1),
-    (14, 3, 'FBS 145 mg/dL HIGH',   '2024-03-19', 1),
-    (16, 6, 'Temporal lobe activity','2024-04-03', 1),
-    (17, 4, 'Tachycardia noted',     '2024-04-11', 1),
-    (19, 6, 'No abnormality',        '2024-04-21', 0),
-    (21, 4, 'ST depression noted',   '2024-05-04', 1),
-    (23, 5, 'Fracture confirmed',    '2024-05-16', 1),
-    (26, 6, 'Normal',                '2024-06-04', 0),
-    (28, 4, 'Normal Sinus',          '2024-06-16', 0);
+-- kv_Lab_Orders
+INSERT INTO kv_Lab_Orders (appointment_id, lab_test_id, result_value, result_date, is_abnormal) VALUES
+    (1,  4, 'Normal Sinus Rhythm',    '2024-01-11', 0),
+    (1,  2, 'LDL 180 mg/dL HIGH',    '2024-01-11', 1),
+    (2,  4, 'AF detected',            '2024-01-11', 1),
+    (3,  5, 'Joint space narrowing',  '2024-01-16', 1),
+    (4,  1, 'WBC 11000 high',         '2024-01-21', 1),
+    (5,  6, 'No abnormality',         '2024-01-23', 0),
+    (6,  4, 'Irregular rhythm',       '2024-02-06', 1),
+    (7,  5, 'L4-L5 disc herniation',  '2024-02-13', 1),
+    (9,  1, 'WBC 9000 Normal',        '2024-02-21', 0),
+    (10, 4, 'AF noted',               '2024-02-26', 1),
+    (11, 6, 'No lesion',              '2024-03-06', 0),
+    (13, 2, 'LDL 160 mg/dL HIGH',    '2024-03-16', 1),
+    (14, 3, 'FBS 145 mg/dL HIGH',    '2024-03-19', 1),
+    (16, 6, 'Temporal lobe activity', '2024-04-03', 1),
+    (17, 4, 'Tachycardia noted',      '2024-04-11', 1),
+    (19, 6, 'No abnormality',         '2024-04-21', 0),
+    (21, 4, 'ST depression noted',    '2024-05-04', 1),
+    (23, 5, 'Fracture confirmed',     '2024-05-16', 1),
+    (26, 6, 'Normal',                 '2024-06-04', 0),
+    (28, 4, 'Normal Sinus',           '2024-06-16', 0);
 GO
 
--- ============================================================
--- SECTION 03 — BILLS DATA
--- GST: 0% consult | 5% medicine | 12% lab
--- Insurance discount on med+lab only, applied before GST
--- ============================================================
-INSERT INTO Bills (
+-- kv_Bills (auto calculated with GST and insurance)
+INSERT INTO kv_Bills (
     appointment_id, patient_id,
     consult_charge, medicine_charge, lab_charge,
     insurance_discount, gst_on_consult, gst_on_medicine, gst_on_lab,
     payable_amount, payment_status, billed_on
 )
 SELECT
-    a.appointment_id,
-    a.patient_id,
-    d.fees                                                          AS consult_charge,
-    ISNULL(med.med_cost, 0)                                         AS medicine_charge,
-    ISNULL(lab.lab_cost, 0)                                         AS lab_charge,
-    -- Insurance discount on med+lab only
-    ROUND(ISNULL(ins.coverage_percent,0)/100.0
-          * (ISNULL(med.med_cost,0) + ISNULL(lab.lab_cost,0)), 2)  AS insurance_discount,
-    0                                                               AS gst_on_consult,
-    -- GST 5% on net medicine
-    ROUND(0.05 * (ISNULL(med.med_cost,0)
-        - CASE WHEN (ISNULL(med.med_cost,0)+ISNULL(lab.lab_cost,0)) > 0
-               THEN ROUND(ISNULL(ins.coverage_percent,0)/100.0
-                    * (ISNULL(med.med_cost,0)+ISNULL(lab.lab_cost,0)),2)
-                    * ISNULL(med.med_cost,0)
-                    / (ISNULL(med.med_cost,0)+ISNULL(lab.lab_cost,0))
-               ELSE 0 END), 2)                                      AS gst_on_medicine,
-    -- GST 12% on net lab
-    ROUND(0.12 * (ISNULL(lab.lab_cost,0)
-        - CASE WHEN (ISNULL(med.med_cost,0)+ISNULL(lab.lab_cost,0)) > 0
-               THEN ROUND(ISNULL(ins.coverage_percent,0)/100.0
-                    * (ISNULL(med.med_cost,0)+ISNULL(lab.lab_cost,0)),2)
-                    * ISNULL(lab.lab_cost,0)
-                    / (ISNULL(med.med_cost,0)+ISNULL(lab.lab_cost,0))
-               ELSE 0 END), 2)                                      AS gst_on_lab,
-    -- Final payable
-    d.fees
-    + (ISNULL(med.med_cost,0) + ISNULL(lab.lab_cost,0))
-    - ROUND(ISNULL(ins.coverage_percent,0)/100.0
-            * (ISNULL(med.med_cost,0)+ISNULL(lab.lab_cost,0)), 2)
-    + ROUND(0.05*(ISNULL(med.med_cost,0)
-        - CASE WHEN (ISNULL(med.med_cost,0)+ISNULL(lab.lab_cost,0))>0
-               THEN ROUND(ISNULL(ins.coverage_percent,0)/100.0
-                    *(ISNULL(med.med_cost,0)+ISNULL(lab.lab_cost,0)),2)
-                    *ISNULL(med.med_cost,0)/(ISNULL(med.med_cost,0)+ISNULL(lab.lab_cost,0))
-               ELSE 0 END),2)
-    + ROUND(0.12*(ISNULL(lab.lab_cost,0)
-        - CASE WHEN (ISNULL(med.med_cost,0)+ISNULL(lab.lab_cost,0))>0
-               THEN ROUND(ISNULL(ins.coverage_percent,0)/100.0
-                    *(ISNULL(med.med_cost,0)+ISNULL(lab.lab_cost,0)),2)
-                    *ISNULL(lab.lab_cost,0)/(ISNULL(med.med_cost,0)+ISNULL(lab.lab_cost,0))
-               ELSE 0 END),2)                                       AS payable_amount,
-    CASE a.appointment_id % 3
-        WHEN 0 THEN 'Paid'
-        WHEN 1 THEN 'Unpaid'
-        ELSE        'Partially Paid'
-    END                                                             AS payment_status,
-    a.appt_date                                                     AS billed_on
-FROM Appointments a
-JOIN Doctors d ON d.doctor_id = a.doctor_id
--- medicine cost per appointment via prescription
+    a.appointment_id, a.patient_id,
+    d.fees,
+    ISNULL(med.med_cost, 0),
+    ISNULL(lab.lab_cost, 0),
+    ROUND(ISNULL(ins.coverage_percent,0)/100.0*(ISNULL(med.med_cost,0)+ISNULL(lab.lab_cost,0)),2),
+    0,
+    ROUND(0.05*(ISNULL(med.med_cost,0)-CASE WHEN (ISNULL(med.med_cost,0)+ISNULL(lab.lab_cost,0))>0 THEN ROUND(ISNULL(ins.coverage_percent,0)/100.0*(ISNULL(med.med_cost,0)+ISNULL(lab.lab_cost,0)),2)*ISNULL(med.med_cost,0)/(ISNULL(med.med_cost,0)+ISNULL(lab.lab_cost,0)) ELSE 0 END),2),
+    ROUND(0.12*(ISNULL(lab.lab_cost,0)-CASE WHEN (ISNULL(med.med_cost,0)+ISNULL(lab.lab_cost,0))>0 THEN ROUND(ISNULL(ins.coverage_percent,0)/100.0*(ISNULL(med.med_cost,0)+ISNULL(lab.lab_cost,0)),2)*ISNULL(lab.lab_cost,0)/(ISNULL(med.med_cost,0)+ISNULL(lab.lab_cost,0)) ELSE 0 END),2),
+    d.fees+(ISNULL(med.med_cost,0)+ISNULL(lab.lab_cost,0))
+    -ROUND(ISNULL(ins.coverage_percent,0)/100.0*(ISNULL(med.med_cost,0)+ISNULL(lab.lab_cost,0)),2)
+    +ROUND(0.05*(ISNULL(med.med_cost,0)-CASE WHEN (ISNULL(med.med_cost,0)+ISNULL(lab.lab_cost,0))>0 THEN ROUND(ISNULL(ins.coverage_percent,0)/100.0*(ISNULL(med.med_cost,0)+ISNULL(lab.lab_cost,0)),2)*ISNULL(med.med_cost,0)/(ISNULL(med.med_cost,0)+ISNULL(lab.lab_cost,0)) ELSE 0 END),2)
+    +ROUND(0.12*(ISNULL(lab.lab_cost,0)-CASE WHEN (ISNULL(med.med_cost,0)+ISNULL(lab.lab_cost,0))>0 THEN ROUND(ISNULL(ins.coverage_percent,0)/100.0*(ISNULL(med.med_cost,0)+ISNULL(lab.lab_cost,0)),2)*ISNULL(lab.lab_cost,0)/(ISNULL(med.med_cost,0)+ISNULL(lab.lab_cost,0)) ELSE 0 END),2),
+    CASE a.appointment_id%3 WHEN 0 THEN 'Paid' WHEN 1 THEN 'Unpaid' ELSE 'Partially Paid' END,
+    a.appt_date
+FROM kv_Appointments a
+JOIN kv_Doctors d ON d.doctor_id = a.doctor_id
 LEFT JOIN (
-    SELECT pr.appointment_id,
-           SUM(m.price * pm.quantity) AS med_cost
-    FROM   Prescriptions pr
-    JOIN   Prescription_Medicines pm ON pm.prescription_id = pr.prescription_id
-    JOIN   Medicines m               ON m.medicine_id      = pm.medicine_id
-    GROUP  BY pr.appointment_id
+    SELECT pr.appointment_id, SUM(m.price*pm.quantity) AS med_cost
+    FROM kv_Prescriptions pr
+    JOIN kv_Prescription_Medicines pm ON pm.prescription_id = pr.prescription_id
+    JOIN kv_Medicines m ON m.medicine_id = pm.medicine_id
+    GROUP BY pr.appointment_id
 ) med ON med.appointment_id = a.appointment_id
--- lab cost per appointment
 LEFT JOIN (
     SELECT lo.appointment_id, SUM(lt.price) AS lab_cost
-    FROM   Lab_Orders lo
-    JOIN   Lab_Tests  lt ON lt.lab_test_id = lo.lab_test_id
-    GROUP  BY lo.appointment_id
+    FROM kv_Lab_Orders lo JOIN kv_Lab_Tests lt ON lt.lab_test_id = lo.lab_test_id
+    GROUP BY lo.appointment_id
 ) lab ON lab.appointment_id = a.appointment_id
--- active insurance
-LEFT JOIN Patients_Insurance pi2
-    ON  pi2.patient_id = a.patient_id
-    AND pi2.valid_from <= a.appt_date
-    AND pi2.valid_to   >= a.appt_date
-LEFT JOIN Insurance ins ON ins.insurance_id = pi2.insurance_id
+LEFT JOIN kv_Patients_Insurance pi2
+    ON pi2.patient_id = a.patient_id
+    AND pi2.valid_from <= a.appt_date AND pi2.valid_to >= a.appt_date
+LEFT JOIN kv_Insurance ins ON ins.insurance_id = pi2.insurance_id
 WHERE a.status = 'Completed';
 GO
 
 -- ============================================================
--- SECTION 04 — VIEWS  (for role-based security)
+-- SECTION 04 — VIEWS
 -- ============================================================
 
--- Receptionist: patient info — no DOB, address, email
-CREATE OR ALTER VIEW vw_Patient_Basic AS
+-- Receptionist: patient info - no DOB, address, email
+CREATE OR ALTER VIEW vw_kv_Patient_Basic AS
 SELECT patient_id, patient_name, gender, phone, registered_on
-FROM   Patients;
+FROM kv_Patients;
 GO
 
--- Billing role: patient name + insurance only
-CREATE OR ALTER VIEW vw_Patient_ForBilling AS
-SELECT
-    p.patient_id,
-    p.patient_name,
-    ins.provider_name,
-    pi2.policy_number,
-    ins.coverage_percent,
-    ins.yearly_maximum
-FROM Patients p
-LEFT JOIN Patients_Insurance pi2 ON pi2.patient_id   = p.patient_id
-LEFT JOIN Insurance          ins ON ins.insurance_id  = pi2.insurance_id;
+-- Billing: patient name + insurance only
+CREATE OR ALTER VIEW vw_kv_Patient_ForBilling AS
+SELECT p.patient_id, p.patient_name,
+    ins.provider_name, pi2.policy_number,
+    ins.coverage_percent, ins.yearly_maximum
+FROM kv_Patients p
+LEFT JOIN kv_Patients_Insurance pi2 ON pi2.patient_id  = p.patient_id
+LEFT JOIN kv_Insurance          ins ON ins.insurance_id = pi2.insurance_id;
 GO
 
 -- Lab tech: lab orders without patient personal info
-CREATE OR ALTER VIEW vw_LabOrders_ForTech AS
-SELECT
-    lo.lab_order_id, lo.appointment_id, lo.lab_test_id,
-    lt.test_name, lt.price,
-    lo.ordered_on, lo.result_value, lo.result_date, lo.is_abnormal
-FROM Lab_Orders lo
-JOIN Lab_Tests  lt ON lt.lab_test_id = lo.lab_test_id;
+CREATE OR ALTER VIEW vw_kv_LabOrders_ForTech AS
+SELECT lo.lab_order_id, lo.appointment_id, lo.lab_test_id,
+    lt.test_name, lt.price, lo.ordered_on,
+    lo.result_value, lo.result_date, lo.is_abnormal
+FROM kv_Lab_Orders lo
+JOIN kv_Lab_Tests lt ON lt.lab_test_id = lo.lab_test_id;
 GO
 
 -- ============================================================
--- SECTION 05 — USER-DEFINED FUNCTIONS  (Section C)
+-- SECTION 05 — FUNCTIONS (Section C)
 -- ============================================================
 
--- ------------------------------------------------------------
--- C1: fn_GetPatientAge
--- Returns age in completed years. Returns NULL if ID not found.
--- ------------------------------------------------------------
-CREATE OR ALTER FUNCTION dbo.fn_GetPatientAge (@patient_id INT)
-RETURNS INT
-AS
+-- C1: fn_kv_GetPatientAge
+CREATE OR ALTER FUNCTION dbo.fn_kv_GetPatientAge (@patient_id INT)
+RETURNS INT AS
 BEGIN
     DECLARE @dob DATE;
-    SELECT @dob = date_of_birth FROM Patients WHERE patient_id = @patient_id;
+    SELECT @dob = date_of_birth FROM kv_Patients WHERE patient_id = @patient_id;
     IF @dob IS NULL RETURN NULL;
     RETURN DATEDIFF(YEAR, @dob, GETDATE())
          - CASE
                WHEN MONTH(@dob) > MONTH(GETDATE()) THEN 1
-               WHEN MONTH(@dob) = MONTH(GETDATE())
-                AND DAY(@dob)   > DAY(GETDATE())   THEN 1
+               WHEN MONTH(@dob) = MONTH(GETDATE()) AND DAY(@dob) > DAY(GETDATE()) THEN 1
                ELSE 0
            END;
 END;
 GO
 
--- C1 Demonstration
-SELECT
-    patient_id,
-    patient_name,
-    date_of_birth,
-    dbo.fn_GetPatientAge(patient_id) AS age_in_years
-FROM   Patients
-ORDER  BY patient_id;
-GO
-
--- ------------------------------------------------------------
--- C2: fn_CalculateNetBill
--- Returns final payable after insurance discount + GST.
--- GST: 0% consult | 5% medicine | 12% lab
--- ------------------------------------------------------------
-CREATE OR ALTER FUNCTION dbo.fn_CalculateNetBill (
+-- C2: fn_kv_CalculateNetBill
+CREATE OR ALTER FUNCTION dbo.fn_kv_CalculateNetBill (
     @consult_charge DECIMAL(10,2),
     @med_charge     DECIMAL(10,2),
     @lab_charge     DECIMAL(10,2),
     @insurance_pct  DECIMAL(5,2)
 )
-RETURNS DECIMAL(12,2)
-AS
+RETURNS DECIMAL(12,2) AS
 BEGIN
     DECLARE @disc    DECIMAL(10,2);
     DECLARE @net_med DECIMAL(10,2);
     DECLARE @net_lab DECIMAL(10,2);
-
-    SET @disc    = ROUND(@insurance_pct / 100.0 * (@med_charge + @lab_charge), 2);
-    SET @net_med = @med_charge - CASE WHEN (@med_charge+@lab_charge)>0
-                                      THEN ROUND(@disc*@med_charge/(@med_charge+@lab_charge),2)
-                                      ELSE 0 END;
-    SET @net_lab = @lab_charge - CASE WHEN (@med_charge+@lab_charge)>0
-                                      THEN ROUND(@disc*@lab_charge/(@med_charge+@lab_charge),2)
-                                      ELSE 0 END;
-    RETURN ROUND(
-        @consult_charge
-        + @net_med + ROUND(0.05 * @net_med, 2)
-        + @net_lab + ROUND(0.12 * @net_lab, 2)
-    , 2);
+    SET @disc    = ROUND(@insurance_pct/100.0*(@med_charge+@lab_charge),2);
+    SET @net_med = @med_charge - CASE WHEN (@med_charge+@lab_charge)>0 THEN ROUND(@disc*@med_charge/(@med_charge+@lab_charge),2) ELSE 0 END;
+    SET @net_lab = @lab_charge - CASE WHEN (@med_charge+@lab_charge)>0 THEN ROUND(@disc*@lab_charge/(@med_charge+@lab_charge),2) ELSE 0 END;
+    RETURN ROUND(@consult_charge + @net_med + ROUND(0.05*@net_med,2) + @net_lab + ROUND(0.12*@net_lab,2),2);
 END;
 GO
 
--- C2 Demonstration — verify function matches stored payable_amount
-SELECT
-    b.bill_id,
-    b.appointment_id,
-    b.payable_amount                          AS stored_amount,
-    dbo.fn_CalculateNetBill(
-        b.consult_charge,
-        b.medicine_charge,
-        b.lab_charge,
-        ISNULL(ins.coverage_percent, 0)
-    )                                         AS function_amount,
-    CASE WHEN ABS(b.payable_amount - dbo.fn_CalculateNetBill(
-        b.consult_charge, b.medicine_charge,
-        b.lab_charge, ISNULL(ins.coverage_percent, 0))) < 1
-         THEN 'Match' ELSE 'Mismatch'
-    END                                       AS verification
-FROM Bills b
-JOIN Appointments a ON a.appointment_id = b.appointment_id
-LEFT JOIN Patients_Insurance pi2
-    ON  pi2.patient_id = a.patient_id
-    AND pi2.valid_from <= a.appt_date
-    AND pi2.valid_to   >= a.appt_date
-LEFT JOIN Insurance ins ON ins.insurance_id = pi2.insurance_id
-ORDER BY b.bill_id;
-GO
-
 -- ============================================================
--- SECTION 06 — STORED PROCEDURES  (Section A)
+-- SECTION 06 — STORED PROCEDURES (Section A)
 -- ============================================================
 
--- ------------------------------------------------------------
--- A1: usp_MonthlyDepartmentReport
--- All departments shown even if zero appointments that month.
--- ------------------------------------------------------------
-CREATE OR ALTER PROCEDURE dbo.usp_MonthlyDepartmentReport
-    @month INT,
-    @year  INT
+-- A1: Monthly Department Report
+CREATE OR ALTER PROCEDURE dbo.usp_kv_MonthlyDepartmentReport
+    @month INT, @year INT
 AS
 BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
-        IF @month < 1 OR @month > 12
-            THROW 50001, 'Invalid month. Must be 1-12.', 1;
-        IF @year < 2000 OR @year > 2100
-            THROW 50002, 'Invalid year. Must be 2000-2100.', 1;
-
+        IF @month < 1 OR @month > 12 THROW 50001, 'Invalid month. Must be 1-12.', 1;
+        IF @year < 2000 OR @year > 2100 THROW 50002, 'Invalid year. Must be 2000-2100.', 1;
         SELECT
             dep.dept_id,
-            dep.dept_name                       AS department_name,
-            COUNT(a.appointment_id)             AS total_appointments,
-            COUNT(DISTINCT a.patient_id)        AS unique_patients,
-            ISNULL(SUM(d.fees), 0)              AS total_consult_revenue
-        FROM Department dep
-        LEFT JOIN Doctors      d ON d.dept_id    = dep.dept_id
-        LEFT JOIN Appointments a ON a.doctor_id  = d.doctor_id
-                                AND MONTH(a.appt_date) = @month
-                                AND YEAR(a.appt_date)  = @year
-                                AND a.status = 'Completed'
+            dep.dept_name                AS department_name,
+            COUNT(a.appointment_id)      AS total_appointments,
+            COUNT(DISTINCT a.patient_id) AS unique_patients,
+            ISNULL(SUM(d.fees), 0)       AS total_consult_revenue
+        FROM kv_Department dep
+        LEFT JOIN kv_Doctors      d ON d.dept_id   = dep.dept_id
+        LEFT JOIN kv_Appointments a ON a.doctor_id = d.doctor_id
+                                   AND MONTH(a.appt_date) = @month
+                                   AND YEAR(a.appt_date)  = @year
+                                   AND a.status = 'Completed'
         GROUP BY dep.dept_id, dep.dept_name
         ORDER BY dep.dept_name;
     END TRY
-    BEGIN CATCH
-        THROW;
-    END CATCH;
+    BEGIN CATCH THROW; END CATCH;
 END;
 GO
-EXEC dbo.usp_MonthlyDepartmentReport @month = 1, @year = 2024;
-GO
 
--- ------------------------------------------------------------
--- A2: usp_PatientBillingStatement
--- Full billing history + GRAND TOTAL row. Error if not found.
--- ------------------------------------------------------------
-CREATE OR ALTER PROCEDURE dbo.usp_PatientBillingStatement
+-- A2: Patient Billing Statement
+CREATE OR ALTER PROCEDURE dbo.usp_kv_PatientBillingStatement
     @patient_id INT
 AS
 BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
-        IF NOT EXISTS (SELECT 1 FROM Patients WHERE patient_id = @patient_id)
+        IF NOT EXISTS (SELECT 1 FROM kv_Patients WHERE patient_id = @patient_id)
             THROW 50010, 'Patient ID does not exist.', 1;
-
         SELECT
-            CASE WHEN GROUPING(a.appt_date) = 1
-                 THEN 'GRAND TOTAL'
-                 ELSE CONVERT(NVARCHAR(20), a.appt_date, 106)
-            END                                 AS appointment_date,
-            CASE WHEN GROUPING(a.appt_date) = 1
-                 THEN '' ELSE d.doctor_name
-            END                                 AS doctor_name,
-            SUM(b.consult_charge)               AS consult_charge,
-            SUM(b.medicine_charge)              AS medicine_charge,
-            SUM(b.lab_charge)                   AS lab_charge,
-            SUM(b.insurance_discount)           AS insurance_discount,
-            SUM(b.gst_on_consult
-              + b.gst_on_medicine
-              + b.gst_on_lab)                   AS total_gst,
-            SUM(b.payable_amount)               AS payable_amount
-        FROM Appointments a
-        JOIN Bills   b ON b.appointment_id = a.appointment_id
-        JOIN Doctors d ON d.doctor_id      = a.doctor_id
+            CASE WHEN GROUPING(a.appt_date)=1 THEN 'GRAND TOTAL'
+                 ELSE CONVERT(NVARCHAR(20), a.appt_date, 106) END AS appointment_date,
+            CASE WHEN GROUPING(a.appt_date)=1 THEN '' ELSE d.doctor_name END AS doctor_name,
+            SUM(b.consult_charge)    AS consult_charge,
+            SUM(b.medicine_charge)   AS medicine_charge,
+            SUM(b.lab_charge)        AS lab_charge,
+            SUM(b.insurance_discount) AS insurance_discount,
+            SUM(b.gst_on_consult+b.gst_on_medicine+b.gst_on_lab) AS total_gst,
+            SUM(b.payable_amount)    AS payable_amount
+        FROM kv_Appointments a
+        JOIN kv_Bills   b ON b.appointment_id = a.appointment_id
+        JOIN kv_Doctors d ON d.doctor_id      = a.doctor_id
         WHERE a.patient_id = @patient_id AND a.status = 'Completed'
-        GROUP BY GROUPING SETS (
-            (a.appt_date, d.doctor_name), ()
-        )
+        GROUP BY GROUPING SETS ((a.appt_date, d.doctor_name), ())
         ORDER BY GROUPING(a.appt_date), a.appt_date;
     END TRY
-    BEGIN CATCH
-        THROW;
-    END CATCH;
+    BEGIN CATCH THROW; END CATCH;
 END;
 GO
-EXEC dbo.usp_PatientBillingStatement @patient_id = 1;
-GO
 
--- ------------------------------------------------------------
--- A3: usp_DoctorPerformanceReport
--- Active doctors with >= @min_appointments. Order by revenue.
--- ------------------------------------------------------------
-CREATE OR ALTER PROCEDURE dbo.usp_DoctorPerformanceReport
+-- A3: Doctor Performance Report
+CREATE OR ALTER PROCEDURE dbo.usp_kv_DoctorPerformanceReport
     @min_appointments INT = 1
 AS
 BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
-        IF @min_appointments < 0
-            THROW 50020, 'Minimum appointment count cannot be negative.', 1;
-
+        IF @min_appointments < 0 THROW 50020, 'Minimum appointment count cannot be negative.', 1;
         WITH stats AS (
-            SELECT
-                d.doctor_id,
-                d.doctor_name,
-                dep.dept_name,
-                COUNT(a.appointment_id)                              AS total_appts,
-                SUM(CASE WHEN a.status = 'Completed' THEN 1 ELSE 0 END) AS completed_appts,
-                ISNULL(SUM(b.payable_amount), 0)                     AS total_revenue,
-                COUNT(DISTINCT diag.diagnosis_details)               AS unique_diagnoses
-            FROM Doctors d
-            JOIN Department dep ON dep.dept_id    = d.dept_id
-            LEFT JOIN Appointments a   ON a.doctor_id      = d.doctor_id
-            LEFT JOIN Bills        b   ON b.appointment_id = a.appointment_id
-            LEFT JOIN Diagnosis    diag ON diag.appointment_id = a.appointment_id
+            SELECT d.doctor_id, d.doctor_name, dep.dept_name,
+                COUNT(a.appointment_id)                                AS total_appts,
+                SUM(CASE WHEN a.status='Completed' THEN 1 ELSE 0 END) AS completed_appts,
+                ISNULL(SUM(b.payable_amount), 0)                       AS total_revenue,
+                COUNT(DISTINCT diag.diagnosis_details)                 AS unique_diagnoses
+            FROM kv_Doctors d
+            JOIN kv_Department dep ON dep.dept_id = d.dept_id
+            LEFT JOIN kv_Appointments a    ON a.doctor_id      = d.doctor_id
+            LEFT JOIN kv_Bills        b    ON b.appointment_id = a.appointment_id
+            LEFT JOIN kv_Diagnosis    diag ON diag.appointment_id = a.appointment_id
             WHERE d.is_active = 1
             GROUP BY d.doctor_id, d.doctor_name, dep.dept_name
         )
-        SELECT
-            doctor_name,
-            dept_name             AS department,
-            total_appts           AS total_appointments,
-            completed_appts,
-            CASE WHEN total_appts = 0 THEN 0.00
-                 ELSE ROUND(CAST(completed_appts AS DECIMAL(10,2))/total_appts*100, 2)
-            END                   AS completion_rate_pct,
-            total_revenue,
-            unique_diagnoses
-        FROM stats
-        WHERE total_appts >= @min_appointments
+        SELECT doctor_name, dept_name AS department,
+            total_appts AS total_appointments, completed_appts,
+            CASE WHEN total_appts=0 THEN 0.00
+                 ELSE ROUND(CAST(completed_appts AS DECIMAL(10,2))/total_appts*100,2)
+            END AS completion_rate_pct,
+            total_revenue, unique_diagnoses
+        FROM stats WHERE total_appts >= @min_appointments
         ORDER BY total_revenue DESC;
     END TRY
-    BEGIN CATCH
-        THROW;
-    END CATCH;
+    BEGIN CATCH THROW; END CATCH;
 END;
 GO
-EXEC dbo.usp_DoctorPerformanceReport @min_appointments = 2;
-GO
 
--- ------------------------------------------------------------
--- A4: usp_MedicinesNeverPrescribed
--- Two approaches inside one procedure.
--- ------------------------------------------------------------
-CREATE OR ALTER PROCEDURE dbo.usp_MedicinesNeverPrescribed
+-- A4: Medicines Never Prescribed (Two Ways)
+CREATE OR ALTER PROCEDURE dbo.usp_kv_MedicinesNeverPrescribed
 AS
 BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
         -- Approach 1: NOT IN subquery
-        SELECT medicine_id, medicine_name, category, price
-        FROM   Medicines
-        WHERE  medicine_id NOT IN (
-            SELECT DISTINCT pm.medicine_id FROM Prescription_Medicines pm
+        SELECT medicine_id, medicine_name, category, price FROM kv_Medicines
+        WHERE medicine_id NOT IN (
+            SELECT DISTINCT medicine_id FROM kv_Prescription_Medicines
         );
-
         -- Approach 2: EXCEPT set operation
-        SELECT medicine_id, medicine_name, category, price FROM Medicines
+        SELECT medicine_id, medicine_name, category, price FROM kv_Medicines
         EXCEPT
         SELECT m.medicine_id, m.medicine_name, m.category, m.price
-        FROM   Medicines m
-        JOIN   Prescription_Medicines pm ON pm.medicine_id = m.medicine_id;
+        FROM kv_Medicines m
+        JOIN kv_Prescription_Medicines pm ON pm.medicine_id = m.medicine_id;
     END TRY
-    BEGIN CATCH
-        THROW;
-    END CATCH;
+    BEGIN CATCH THROW; END CATCH;
 END;
 GO
-EXEC dbo.usp_MedicinesNeverPrescribed;
-GO
 
--- ------------------------------------------------------------
--- A5: usp_MonthlyRevenueVsTarget
--- Target = Rs. 5,00,000. Monthly detail + summary.
--- ------------------------------------------------------------
-CREATE OR ALTER PROCEDURE dbo.usp_MonthlyRevenueVsTarget
+-- A5: Monthly Revenue vs Target
+CREATE OR ALTER PROCEDURE dbo.usp_kv_MonthlyRevenueVsTarget
 AS
 BEGIN
     SET NOCOUNT ON;
     DECLARE @target DECIMAL(12,2) = 500000.00;
     BEGIN TRY
         WITH monthly AS (
-            SELECT
-                YEAR(billed_on)    AS bill_year,
-                MONTH(billed_on)   AS bill_month,
-                SUM(payable_amount) AS total_revenue
-            FROM Bills
-            GROUP BY YEAR(billed_on), MONTH(billed_on)
+            SELECT YEAR(billed_on) AS bill_year, MONTH(billed_on) AS bill_month,
+                   SUM(payable_amount) AS total_revenue
+            FROM kv_Bills GROUP BY YEAR(billed_on), MONTH(billed_on)
         )
-        SELECT
-            FORMAT(DATEFROMPARTS(bill_year, bill_month, 1), 'MMM yyyy') AS month_year,
+        SELECT FORMAT(DATEFROMPARTS(bill_year,bill_month,1),'MMM yyyy') AS month_year,
             total_revenue,
-            CASE WHEN total_revenue >= @target THEN 'Yes' ELSE 'No' END  AS target_met,
-            total_revenue - @target                                       AS surplus_or_deficit
-        FROM monthly
-        ORDER BY bill_year, bill_month;
+            CASE WHEN total_revenue >= @target THEN 'Yes' ELSE 'No' END AS target_met,
+            total_revenue - @target AS surplus_or_deficit
+        FROM monthly ORDER BY bill_year, bill_month;
 
-        -- Summary
         SELECT
             SUM(CASE WHEN total_revenue >= @target THEN 1 ELSE 0 END) AS months_met,
             SUM(CASE WHEN total_revenue <  @target THEN 1 ELSE 0 END) AS months_not_met
         FROM (
             SELECT YEAR(billed_on) y, MONTH(billed_on) m, SUM(payable_amount) total_revenue
-            FROM Bills GROUP BY YEAR(billed_on), MONTH(billed_on)
+            FROM kv_Bills GROUP BY YEAR(billed_on), MONTH(billed_on)
         ) sub;
     END TRY
-    BEGIN CATCH
-        THROW;
-    END CATCH;
+    BEGIN CATCH THROW; END CATCH;
 END;
 GO
-EXEC dbo.usp_MonthlyRevenueVsTarget;
-GO
 
 -- ============================================================
--- SECTION 07 — TRIGGERS  (Section B)
+-- SECTION 07 — TRIGGERS (Section B)
 -- ============================================================
 
--- ------------------------------------------------------------
--- B1: trg_PreventDoctorDoubleBooking
--- Rolls back INSERT if doctor already booked at same slot.
--- ------------------------------------------------------------
-CREATE OR ALTER TRIGGER dbo.trg_PreventDoctorDoubleBooking
-ON Appointments
-AFTER INSERT
+-- B1: Prevent Doctor Double Booking
+CREATE OR ALTER TRIGGER dbo.trg_kv_PreventDoctorDoubleBooking
+ON kv_Appointments AFTER INSERT
 AS
 BEGIN
     SET NOCOUNT ON;
     IF EXISTS (
-        SELECT 1
-        FROM inserted i
-        JOIN Appointments a
+        SELECT 1 FROM inserted i
+        JOIN kv_Appointments a
             ON  a.doctor_id      = i.doctor_id
             AND a.appt_date      = i.appt_date
             AND a.time_slot      = i.time_slot
@@ -948,340 +760,295 @@ BEGIN
     )
     BEGIN
         ROLLBACK TRANSACTION;
-        THROW 50100,
-            'Double-booking error: Doctor already has an appointment at this date and time slot.',
-            1;
+        THROW 50100, 'Double-booking error: Doctor already has an appointment at this date and time slot.', 1;
     END;
 END;
 GO
 
--- ------------------------------------------------------------
--- B2: trg_AutoGenerateBillOnCompletion
--- When status changes to Completed, auto-inserts a full bill.
--- Raises error if bill already exists.
--- ------------------------------------------------------------
-CREATE OR ALTER TRIGGER dbo.trg_AutoGenerateBillOnCompletion
-ON Appointments
-AFTER UPDATE
+-- B2: Auto Generate Bill on Completion
+CREATE OR ALTER TRIGGER dbo.trg_kv_AutoGenerateBillOnCompletion
+ON kv_Appointments AFTER UPDATE
 AS
 BEGIN
     SET NOCOUNT ON;
     IF NOT EXISTS (
-        SELECT 1 FROM inserted i
-        JOIN deleted  d ON d.appointment_id = i.appointment_id
+        SELECT 1 FROM inserted i JOIN deleted d ON d.appointment_id = i.appointment_id
         WHERE i.status = 'Completed' AND d.status <> 'Completed'
     ) RETURN;
-
     BEGIN TRY
-        DECLARE @appt_id   INT,
-                @pat_id    INT,
-                @doc_id    INT,
-                @appt_date DATE;
-
+        DECLARE @appt_id INT, @pat_id INT, @doc_id INT, @appt_date DATE;
         DECLARE cur CURSOR LOCAL FAST_FORWARD FOR
             SELECT i.appointment_id, i.patient_id, i.doctor_id, i.appt_date
             FROM inserted i JOIN deleted d ON d.appointment_id = i.appointment_id
             WHERE i.status = 'Completed' AND d.status <> 'Completed';
-
         OPEN cur;
         FETCH NEXT FROM cur INTO @appt_id, @pat_id, @doc_id, @appt_date;
-
         WHILE @@FETCH_STATUS = 0
         BEGIN
-            IF EXISTS (SELECT 1 FROM Bills WHERE appointment_id = @appt_id)
-            BEGIN
-                CLOSE cur; DEALLOCATE cur;
-                THROW 50200, 'Bill already exists for this appointment.', 1;
-            END;
+            IF EXISTS (SELECT 1 FROM kv_Bills WHERE appointment_id = @appt_id)
+            BEGIN CLOSE cur; DEALLOCATE cur; THROW 50200, 'Bill already exists for this appointment.', 1; END;
 
-            DECLARE @fee     DECIMAL(10,2),
-                    @med     DECIMAL(10,2),
-                    @lab     DECIMAL(10,2),
-                    @ins_pct DECIMAL(5,2),
-                    @disc    DECIMAL(10,2),
-                    @net_med DECIMAL(10,2),
-                    @net_lab DECIMAL(10,2),
-                    @gst_med DECIMAL(10,2),
-                    @gst_lab DECIMAL(10,2),
-                    @final   DECIMAL(12,2),
-                    @unpaid  DECIMAL(12,2);
+            DECLARE @fee DECIMAL(10,2), @med DECIMAL(10,2), @lab DECIMAL(10,2),
+                    @ins_pct DECIMAL(5,2), @disc DECIMAL(10,2),
+                    @net_med DECIMAL(10,2), @net_lab DECIMAL(10,2),
+                    @gst_med DECIMAL(10,2), @gst_lab DECIMAL(10,2),
+                    @final DECIMAL(12,2), @unpaid DECIMAL(12,2);
 
-            SELECT @fee = fees FROM Doctors WHERE doctor_id = @doc_id;
-
-            SELECT @med = ISNULL(SUM(m.price * pm.quantity), 0)
-            FROM Prescriptions pr
-            JOIN Prescription_Medicines pm ON pm.prescription_id = pr.prescription_id
-            JOIN Medicines m               ON m.medicine_id      = pm.medicine_id
+            SELECT @fee = fees FROM kv_Doctors WHERE doctor_id = @doc_id;
+            SELECT @med = ISNULL(SUM(m.price*pm.quantity),0)
+            FROM kv_Prescriptions pr
+            JOIN kv_Prescription_Medicines pm ON pm.prescription_id = pr.prescription_id
+            JOIN kv_Medicines m ON m.medicine_id = pm.medicine_id
             WHERE pr.appointment_id = @appt_id;
-
-            SELECT @lab = ISNULL(SUM(lt.price), 0)
-            FROM Lab_Orders lo JOIN Lab_Tests lt ON lt.lab_test_id = lo.lab_test_id
+            SELECT @lab = ISNULL(SUM(lt.price),0)
+            FROM kv_Lab_Orders lo JOIN kv_Lab_Tests lt ON lt.lab_test_id = lo.lab_test_id
             WHERE lo.appointment_id = @appt_id;
-
-            SELECT @ins_pct = ISNULL(ins.coverage_percent, 0)
-            FROM Patients_Insurance pi2
-            JOIN Insurance ins ON ins.insurance_id = pi2.insurance_id
+            SELECT @ins_pct = ISNULL(ins.coverage_percent,0)
+            FROM kv_Patients_Insurance pi2
+            JOIN kv_Insurance ins ON ins.insurance_id = pi2.insurance_id
             WHERE pi2.patient_id = @pat_id
               AND pi2.valid_from <= @appt_date AND pi2.valid_to >= @appt_date;
 
-            SET @ins_pct = ISNULL(@ins_pct, 0);
-            SET @disc    = ROUND(@ins_pct/100.0 * (@med+@lab), 2);
-            SET @net_med = @med - CASE WHEN (@med+@lab)>0
-                                       THEN ROUND(@disc*@med/(@med+@lab),2) ELSE 0 END;
-            SET @net_lab = @lab - CASE WHEN (@med+@lab)>0
-                                       THEN ROUND(@disc*@lab/(@med+@lab),2) ELSE 0 END;
-            SET @gst_med = ROUND(0.05*@net_med, 2);
-            SET @gst_lab = ROUND(0.12*@net_lab, 2);
-            SET @final   = @fee + @net_med + @gst_med + @net_lab + @gst_lab;
+            SET @ins_pct = ISNULL(@ins_pct,0);
+            SET @disc    = ROUND(@ins_pct/100.0*(@med+@lab),2);
+            SET @net_med = @med - CASE WHEN (@med+@lab)>0 THEN ROUND(@disc*@med/(@med+@lab),2) ELSE 0 END;
+            SET @net_lab = @lab - CASE WHEN (@med+@lab)>0 THEN ROUND(@disc*@lab/(@med+@lab),2) ELSE 0 END;
+            SET @gst_med = ROUND(0.05*@net_med,2);
+            SET @gst_lab = ROUND(0.12*@net_lab,2);
+            SET @final   = @fee+@net_med+@gst_med+@net_lab+@gst_lab;
 
-            -- Enforce Rs. 2,00,000 unpaid limit
-            SELECT @unpaid = ISNULL(SUM(b2.payable_amount), 0)
-            FROM Bills b2
-            JOIN Appointments a2 ON a2.appointment_id = b2.appointment_id
+            SELECT @unpaid = ISNULL(SUM(b2.payable_amount),0)
+            FROM kv_Bills b2 JOIN kv_Appointments a2 ON a2.appointment_id = b2.appointment_id
             WHERE a2.patient_id = @pat_id AND b2.payment_status <> 'Paid';
 
-            IF (@unpaid + @final) > 200000.00
-            BEGIN
-                CLOSE cur; DEALLOCATE cur;
-                THROW 50201, 'Patient unpaid bill limit of Rs. 2,00,000 would be exceeded.', 1;
-            END;
+            IF (@unpaid+@final) > 200000.00
+            BEGIN CLOSE cur; DEALLOCATE cur; THROW 50201, 'Patient unpaid bill limit of Rs. 2,00,000 would be exceeded.', 1; END;
 
-            INSERT INTO Bills (
-                appointment_id, patient_id,
-                consult_charge, medicine_charge, lab_charge,
-                insurance_discount, gst_on_consult, gst_on_medicine, gst_on_lab,
-                payable_amount, payment_status, billed_on
-            ) VALUES (
-                @appt_id, @pat_id,
-                @fee, @med, @lab,
-                @disc, 0, @gst_med, @gst_lab,
-                @final, 'Unpaid', @appt_date
-            );
+            INSERT INTO kv_Bills (appointment_id,patient_id,consult_charge,medicine_charge,lab_charge,
+                insurance_discount,gst_on_consult,gst_on_medicine,gst_on_lab,payable_amount,payment_status,billed_on)
+            VALUES (@appt_id,@pat_id,@fee,@med,@lab,@disc,0,@gst_med,@gst_lab,@final,'Unpaid',@appt_date);
 
             FETCH NEXT FROM cur INTO @appt_id, @pat_id, @doc_id, @appt_date;
         END;
         CLOSE cur; DEALLOCATE cur;
     END TRY
     BEGIN CATCH
-        IF CURSOR_STATUS('local','cur') >= 0
-        BEGIN CLOSE cur; DEALLOCATE cur; END;
+        IF CURSOR_STATUS('local','cur') >= 0 BEGIN CLOSE cur; DEALLOCATE cur; END;
         THROW;
     END CATCH;
 END;
 GO
 
--- ------------------------------------------------------------
--- B3: trg_FlagFollowUpOnAbnormalLab
--- Sets requires_followup = 1 on Diagnosis when is_abnormal = 1.
--- Prints warning (no rollback) if no diagnosis record exists.
--- ------------------------------------------------------------
-CREATE OR ALTER TRIGGER dbo.trg_FlagFollowUpOnAbnormalLab
-ON Lab_Orders
-AFTER INSERT, UPDATE
+-- B3: Flag Follow-Up on Abnormal Lab
+CREATE OR ALTER TRIGGER dbo.trg_kv_FlagFollowUpOnAbnormalLab
+ON kv_Lab_Orders AFTER INSERT, UPDATE
 AS
 BEGIN
     SET NOCOUNT ON;
     IF NOT EXISTS (SELECT 1 FROM inserted WHERE is_abnormal = 1) RETURN;
-
-    UPDATE diag
-    SET    diag.requires_followup = 1
-    FROM   Diagnosis diag
-    JOIN   inserted  i ON i.appointment_id = diag.appointment_id
-    WHERE  i.is_abnormal = 1;
-
+    UPDATE diag SET diag.requires_followup = 1
+    FROM kv_Diagnosis diag
+    JOIN inserted i ON i.appointment_id = diag.appointment_id
+    WHERE i.is_abnormal = 1;
     IF EXISTS (
         SELECT 1 FROM inserted i
-        LEFT JOIN Diagnosis diag ON diag.appointment_id = i.appointment_id
+        LEFT JOIN kv_Diagnosis diag ON diag.appointment_id = i.appointment_id
         WHERE i.is_abnormal = 1 AND diag.diagnosis_id IS NULL
     )
-    PRINT 'WARNING: Abnormal lab result saved but no diagnosis record found. Follow-up flag not set.';
+    PRINT 'WARNING: Abnormal lab result saved but no diagnosis record found.';
 END;
 GO
 
--- ============================================================
--- SECTION 08 — ADVANCED STANDALONE QUERIES  (Section D)
--- ============================================================
-
--- D1: Top 3 revenue-generating doctors per department
--- Uses DENSE_RANK() window function
-WITH doctor_revenue AS (
-    SELECT
-        dep.dept_name,
-        d.doctor_name,
-        SUM(b.payable_amount)                  AS total_revenue,
-        DENSE_RANK() OVER (
-            PARTITION BY dep.dept_id
-            ORDER BY SUM(b.payable_amount) DESC
-        )                                      AS revenue_rank
-    FROM Doctors d
-    JOIN Department  dep ON dep.dept_id        = d.dept_id
-    JOIN Appointments a  ON a.doctor_id        = d.doctor_id AND a.status = 'Completed'
-    JOIN Bills        b  ON b.appointment_id   = a.appointment_id
-    GROUP BY dep.dept_id, dep.dept_name, d.doctor_id, d.doctor_name
-)
-SELECT dept_name, doctor_name, total_revenue, revenue_rank
-FROM   doctor_revenue
-WHERE  revenue_rank <= 3
-ORDER  BY dept_name, revenue_rank;
-GO
-
--- D2: Running monthly cumulative revenue
--- Uses SUM() OVER window function
-SELECT
-    FORMAT(DATEFROMPARTS(bill_year, bill_month, 1), 'MMM yyyy') AS month_year,
-    monthly_revenue,
-    SUM(monthly_revenue) OVER (
-        ORDER BY bill_year, bill_month
-        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-    )                                                            AS cumulative_revenue
-FROM (
-    SELECT
-        YEAR(billed_on)     AS bill_year,
-        MONTH(billed_on)    AS bill_month,
-        SUM(payable_amount) AS monthly_revenue
-    FROM Bills
-    GROUP BY YEAR(billed_on), MONTH(billed_on)
-) sub
-ORDER BY bill_year, bill_month;
-GO
-
--- ============================================================
--- SECTION 09 — SECURITY: ROLES & PERMISSIONS
--- ============================================================
-
-IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name='db_receptionist' AND type='R')
-    CREATE ROLE db_receptionist;
-IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name='db_doctor'       AND type='R')
-    CREATE ROLE db_doctor;
-IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name='db_lab_tech'     AND type='R')
-    CREATE ROLE db_lab_tech;
-IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name='db_billing'      AND type='R')
-    CREATE ROLE db_billing;
-IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name='db_admin'        AND type='R')
-    CREATE ROLE db_admin;
-GO
-
--- db_receptionist: patient + appointment only
-GRANT SELECT, INSERT ON dbo.vw_Patient_Basic TO db_receptionist;
-GRANT SELECT, INSERT ON dbo.Patients         TO db_receptionist;
-GRANT SELECT, INSERT ON dbo.Appointments     TO db_receptionist;
-DENY  SELECT         ON dbo.Bills            TO db_receptionist;
-DENY  SELECT         ON dbo.Diagnosis        TO db_receptionist;
-DENY  SELECT         ON dbo.Prescriptions    TO db_receptionist;
-DENY  SELECT         ON dbo.Lab_Orders       TO db_receptionist;
-GO
-
--- db_doctor: read patients/appointments; write diagnosis/prescriptions/labs
-GRANT SELECT              ON dbo.vw_Patient_Basic    TO db_doctor;
-GRANT SELECT              ON dbo.Patients            TO db_doctor;
-GRANT SELECT              ON dbo.Appointments        TO db_doctor;
-GRANT SELECT, INSERT, UPDATE ON dbo.Diagnosis        TO db_doctor;
-GRANT SELECT, INSERT, UPDATE ON dbo.Prescriptions    TO db_doctor;
-GRANT SELECT, INSERT, UPDATE ON dbo.Prescription_Medicines TO db_doctor;
-GRANT SELECT, INSERT, UPDATE ON dbo.Lab_Orders       TO db_doctor;
-GRANT SELECT              ON dbo.Medicines           TO db_doctor;
-GRANT SELECT              ON dbo.Lab_Tests           TO db_doctor;
-DENY  SELECT              ON dbo.Bills               TO db_doctor;
-GO
-
--- db_lab_tech: lab tests + lab orders via view; no patient info; no billing
-GRANT SELECT ON dbo.Lab_Tests             TO db_lab_tech;
-GRANT SELECT ON dbo.vw_LabOrders_ForTech  TO db_lab_tech;
-GRANT UPDATE ON dbo.Lab_Orders            TO db_lab_tech;
-DENY  SELECT ON dbo.Patients              TO db_lab_tech;
-DENY  SELECT ON dbo.Bills                 TO db_lab_tech;
-DENY  SELECT ON dbo.Diagnosis             TO db_lab_tech;
-DENY  SELECT ON dbo.Prescriptions         TO db_lab_tech;
-GO
-
--- db_billing: bills + restricted patient view
-GRANT SELECT, INSERT, UPDATE ON dbo.Bills               TO db_billing;
-GRANT SELECT                 ON dbo.vw_Patient_ForBilling TO db_billing;
-DENY  SELECT ON dbo.Patients    TO db_billing;
-DENY  SELECT ON dbo.Diagnosis   TO db_billing;
-DENY  SELECT ON dbo.Prescriptions TO db_billing;
-GO
-
--- db_admin: full control
-GRANT CONTROL ON DATABASE::MediCarePlus TO db_admin;
-GO
-
--- ============================================================
--- SECTION 10 — BUSINESS RULE ENFORCEMENT TRIGGERS
--- ============================================================
-
--- Bill only allowed for Completed appointments
-CREATE OR ALTER TRIGGER dbo.trg_BillOnlyForCompleted
-ON Bills
-AFTER INSERT
+-- Business Rule: Bill only for Completed appointments
+CREATE OR ALTER TRIGGER dbo.trg_kv_BillOnlyForCompleted
+ON kv_Bills AFTER INSERT
 AS
 BEGIN
     SET NOCOUNT ON;
     IF EXISTS (
         SELECT 1 FROM inserted i
-        JOIN Appointments a ON a.appointment_id = i.appointment_id
+        JOIN kv_Appointments a ON a.appointment_id = i.appointment_id
         WHERE a.status <> 'Completed'
     )
-    BEGIN
-        ROLLBACK TRANSACTION;
-        THROW 50400, 'A bill can only be created for a Completed appointment.', 1;
-    END;
+    BEGIN ROLLBACK TRANSACTION; THROW 50400, 'A bill can only be created for a Completed appointment.', 1; END;
 END;
 GO
 
--- Patient total unpaid bills must not exceed Rs. 2,00,000
-CREATE OR ALTER TRIGGER dbo.trg_EnforceUnpaidBillLimit
-ON Bills
-AFTER INSERT, UPDATE
+-- Business Rule: Unpaid bill limit Rs. 2,00,000
+CREATE OR ALTER TRIGGER dbo.trg_kv_EnforceUnpaidBillLimit
+ON kv_Bills AFTER INSERT, UPDATE
 AS
 BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
         IF EXISTS (
-            SELECT 1
-            FROM (
+            SELECT 1 FROM (
                 SELECT a.patient_id, SUM(b2.payable_amount) AS total_unpaid
                 FROM inserted i
-                JOIN Appointments a  ON a.appointment_id = i.appointment_id
-                JOIN Bills        b2 ON b2.appointment_id IN (
-                    SELECT b3.appointment_id FROM Bills b3
-                    JOIN Appointments a3 ON a3.appointment_id = b3.appointment_id
-                    WHERE a3.patient_id = a.patient_id
-                      AND b3.payment_status <> 'Paid'
+                JOIN kv_Appointments a ON a.appointment_id = i.appointment_id
+                JOIN kv_Bills b2 ON b2.appointment_id IN (
+                    SELECT b3.appointment_id FROM kv_Bills b3
+                    JOIN kv_Appointments a3 ON a3.appointment_id = b3.appointment_id
+                    WHERE a3.patient_id = a.patient_id AND b3.payment_status <> 'Paid'
                 )
                 GROUP BY a.patient_id
-            ) u
-            WHERE u.total_unpaid > 200000.00
+            ) u WHERE u.total_unpaid > 200000.00
         )
-        BEGIN
-            ROLLBACK TRANSACTION;
-            THROW 50300, 'Patient unpaid bill limit of Rs. 2,00,000 exceeded.', 1;
-        END;
+        BEGIN ROLLBACK TRANSACTION; THROW 50300, 'Patient unpaid bill limit of Rs. 2,00,000 exceeded.', 1; END;
     END TRY
-    BEGIN CATCH
-        THROW;
-    END CATCH;
+    BEGIN CATCH THROW; END CATCH;
 END;
 GO
 
 -- ============================================================
+-- SECTION 08 — SECURITY: ROLES & PERMISSIONS
+-- ============================================================
+
+IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name='db_receptionist' AND type='R') CREATE ROLE db_receptionist;
+IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name='db_doctor'       AND type='R') CREATE ROLE db_doctor;
+IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name='db_lab_tech'     AND type='R') CREATE ROLE db_lab_tech;
+IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name='db_billing'      AND type='R') CREATE ROLE db_billing;
+IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name='db_admin'        AND type='R') CREATE ROLE db_admin;
+GO
+
+GRANT SELECT, INSERT ON dbo.vw_kv_Patient_Basic  TO db_receptionist;
+GRANT SELECT, INSERT ON dbo.kv_Patients          TO db_receptionist;
+GRANT SELECT, INSERT ON dbo.kv_Appointments      TO db_receptionist;
+DENY  SELECT         ON dbo.kv_Bills             TO db_receptionist;
+DENY  SELECT         ON dbo.kv_Diagnosis         TO db_receptionist;
+DENY  SELECT         ON dbo.kv_Prescriptions     TO db_receptionist;
+DENY  SELECT         ON dbo.kv_Lab_Orders        TO db_receptionist;
+
+GRANT SELECT              ON dbo.vw_kv_Patient_Basic         TO db_doctor;
+GRANT SELECT              ON dbo.kv_Patients                 TO db_doctor;
+GRANT SELECT              ON dbo.kv_Appointments             TO db_doctor;
+GRANT SELECT, INSERT, UPDATE ON dbo.kv_Diagnosis             TO db_doctor;
+GRANT SELECT, INSERT, UPDATE ON dbo.kv_Prescriptions         TO db_doctor;
+GRANT SELECT, INSERT, UPDATE ON dbo.kv_Prescription_Medicines TO db_doctor;
+GRANT SELECT, INSERT, UPDATE ON dbo.kv_Lab_Orders            TO db_doctor;
+GRANT SELECT              ON dbo.kv_Medicines                TO db_doctor;
+GRANT SELECT              ON dbo.kv_Lab_Tests                TO db_doctor;
+DENY  SELECT              ON dbo.kv_Bills                    TO db_doctor;
+
+GRANT SELECT ON dbo.kv_Lab_Tests              TO db_lab_tech;
+GRANT SELECT ON dbo.vw_kv_LabOrders_ForTech   TO db_lab_tech;
+GRANT UPDATE ON dbo.kv_Lab_Orders             TO db_lab_tech;
+DENY  SELECT ON dbo.kv_Patients               TO db_lab_tech;
+DENY  SELECT ON dbo.kv_Bills                  TO db_lab_tech;
+DENY  SELECT ON dbo.kv_Diagnosis              TO db_lab_tech;
+DENY  SELECT ON dbo.kv_Prescriptions          TO db_lab_tech;
+
+GRANT SELECT, INSERT, UPDATE ON dbo.kv_Bills                 TO db_billing;
+GRANT SELECT                 ON dbo.vw_kv_Patient_ForBilling TO db_billing;
+DENY  SELECT ON dbo.kv_Patients      TO db_billing;
+DENY  SELECT ON dbo.kv_Diagnosis     TO db_billing;
+DENY  SELECT ON dbo.kv_Prescriptions TO db_billing;
+GO
+
+-- ============================================================
+-- SECTION 09 — TASK OUTPUT QUERIES
+-- Run each block separately for individual screenshots
+-- ============================================================
+
+-- C1: Patient Age
+SELECT patient_id, patient_name, date_of_birth,
+       dbo.fn_kv_GetPatientAge(patient_id) AS age_in_years
+FROM kv_Patients ORDER BY patient_id;
+GO
+
+-- C2: Net Bill Verification
+SELECT b.bill_id, b.appointment_id,
+    b.payable_amount AS stored_amount,
+    dbo.fn_kv_CalculateNetBill(b.consult_charge, b.medicine_charge, b.lab_charge, ISNULL(ins.coverage_percent,0)) AS function_amount,
+    CASE WHEN ABS(b.payable_amount - dbo.fn_kv_CalculateNetBill(b.consult_charge,b.medicine_charge,b.lab_charge,ISNULL(ins.coverage_percent,0))) < 1
+         THEN 'Match' ELSE 'Mismatch' END AS verification
+FROM kv_Bills b
+JOIN kv_Appointments a ON a.appointment_id = b.appointment_id
+LEFT JOIN kv_Patients_Insurance pi2 ON pi2.patient_id=a.patient_id AND pi2.valid_from<=a.appt_date AND pi2.valid_to>=a.appt_date
+LEFT JOIN kv_Insurance ins ON ins.insurance_id = pi2.insurance_id
+ORDER BY b.bill_id;
+GO
+
+-- A1: Monthly Department Report
+EXEC dbo.usp_kv_MonthlyDepartmentReport @month = 1, @year = 2024;
+GO
+
+-- A2: Patient Billing Statement
+EXEC dbo.usp_kv_PatientBillingStatement @patient_id = 1;
+GO
+
+-- A3: Doctor Performance Report
+EXEC dbo.usp_kv_DoctorPerformanceReport @min_appointments = 2;
+GO
+
+-- A4: Medicines Never Prescribed
+EXEC dbo.usp_kv_MedicinesNeverPrescribed;
+GO
+
+-- A5: Monthly Revenue vs Target
+EXEC dbo.usp_kv_MonthlyRevenueVsTarget;
+GO
+
+-- D1: Top 3 Doctors per Department by Revenue
+WITH doctor_revenue AS (
+    SELECT dep.dept_name, d.doctor_name,
+        SUM(b.payable_amount) AS total_revenue,
+        DENSE_RANK() OVER (PARTITION BY dep.dept_id ORDER BY SUM(b.payable_amount) DESC) AS revenue_rank
+    FROM kv_Doctors d
+    JOIN kv_Department   dep ON dep.dept_id      = d.dept_id
+    JOIN kv_Appointments a   ON a.doctor_id      = d.doctor_id AND a.status = 'Completed'
+    JOIN kv_Bills        b   ON b.appointment_id = a.appointment_id
+    GROUP BY dep.dept_id, dep.dept_name, d.doctor_id, d.doctor_name
+)
+SELECT dept_name, doctor_name, total_revenue, revenue_rank
+FROM doctor_revenue WHERE revenue_rank <= 3
+ORDER BY dept_name, revenue_rank;
+GO
+
+-- D2: Running Monthly Revenue Total
+SELECT
+    FORMAT(DATEFROMPARTS(bill_year,bill_month,1),'MMM yyyy') AS month_year,
+    monthly_revenue,
+    SUM(monthly_revenue) OVER (ORDER BY bill_year,bill_month ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cumulative_revenue
+FROM (
+    SELECT YEAR(billed_on) AS bill_year, MONTH(billed_on) AS bill_month,
+           SUM(payable_amount) AS monthly_revenue
+    FROM kv_Bills GROUP BY YEAR(billed_on), MONTH(billed_on)
+) sub
+ORDER BY bill_year, bill_month;
+GO
+
+-- ============================================================
+-- TRIGGER TEST QUERIES (run separately for screenshots)
+-- ============================================================
+
+-- B1 Test - Double booking error:
+-- INSERT INTO kv_Appointments (doctor_id,patient_id,appt_date,time_slot,status)
+-- VALUES (1, 5, '2024-01-10', '09:00-10:00', 'Scheduled');
+
+-- B2 Test - Auto bill generation:
+-- INSERT INTO kv_Appointments (doctor_id,patient_id,appt_date,time_slot,status)
+-- VALUES (9, 3, '2024-09-02', '09:00-10:00', 'Scheduled');
+-- UPDATE kv_Appointments SET status='Completed' WHERE appt_date='2024-09-02' AND patient_id=3;
+-- SELECT * FROM kv_Bills WHERE patient_id=3 ORDER BY bill_id DESC;
+
+-- B3 Test - Abnormal lab sets requires_followup:
+-- INSERT INTO kv_Lab_Orders (appointment_id,lab_test_id,result_value,result_date,is_abnormal)
+-- VALUES (5, 3, 'Glucose 210 HIGH', '2024-01-23', 1);
+-- SELECT diagnosis_id,appointment_id,requires_followup FROM kv_Diagnosis WHERE appointment_id=5;
+
+-- ============================================================
 -- END OF SCRIPT
 -- ============================================================
--- Tables      : 14  Department, Doctors, Time_Table,
---                   Patients, Insurance, Patients_Insurance,
---                   Appointments, Diagnosis, Medicines,
---                   Prescriptions, Prescription_Medicines,
---                   Lab_Tests, Lab_Orders, Bills
--- Views       : 3   vw_Patient_Basic, vw_Patient_ForBilling,
---                   vw_LabOrders_ForTech
--- Functions   : 2   fn_GetPatientAge, fn_CalculateNetBill
--- Procedures  : 5   A1-A5
--- Triggers    : 5   B1-B3, trg_BillOnlyForCompleted,
---                   trg_EnforceUnpaidBillLimit
--- Roles       : 5   db_receptionist, db_doctor, db_lab_tech,
---                   db_billing, db_admin
--- Queries     : 2   D1 (DENSE_RANK), D2 (running total)
+-- Tables   : kv_Department, kv_Doctors, kv_Time_Table,
+--            kv_Patients, kv_Insurance, kv_Patients_Insurance,
+--            kv_Appointments, kv_Diagnosis, kv_Medicines,
+--            kv_Prescriptions, kv_Prescription_Medicines,
+--            kv_Lab_Tests, kv_Lab_Orders, kv_Bills
+-- Views    : vw_kv_Patient_Basic, vw_kv_Patient_ForBilling,
+--            vw_kv_LabOrders_ForTech
+-- Functions: fn_kv_GetPatientAge, fn_kv_CalculateNetBill
+-- Procs    : usp_kv_A1 to A5
+-- Triggers : trg_kv_B1 to B3 + business rules
+-- Roles    : 5 roles with GRANT/DENY
 -- ============================================================
-
-
-EXEC dbo.usp_MonthlyDepartmentReport @month = 1, @year = 2024;
